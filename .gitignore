@@ -1,0 +1,7 @@
+node_modules/
+_tests/node_modules/
+_tests/screenshots/
+_tests/package-lock.json
+*.tmp
+_t.js
+CLAUDE.md
