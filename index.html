@@ -427,39 +427,39 @@
         // OBJECT RULES — per-type placement and collision config
         // ============================================================
         const ObjectRules = {
-            // Radii in world units — must match actual visual footprint on screen
-            // Structures were already correct (radius matched visual size)
-            // Vegetation radii tuned to match scaled visual size
-            tree:            { radius: 2.5, biomes: [1,2,5],    solid: true  },
-            pine:            { radius: 2.0, biomes: [1,2,4],    solid: true  },
-            palm:            { radius: 1.8, biomes: [5,6],      solid: true  },
-            birch:           { radius: 2.0, biomes: [1,2],      solid: true  },
-            deadtree:        { radius: 1.2, biomes: [3,4],      solid: true  },
-            cactus:          { radius: 1.2, biomes: [3],         solid: true  },
-            bush:            { radius: 0.8, biomes: [1,2,5],    solid: false },
-            flower:          { radius: 0.3, biomes: [1,2,5,6],  solid: false },
-            mushroom:        { radius: 0.4, biomes: [2,5],      solid: false },
-            rock:            { radius: 1.0, biomes: null,        solid: true  },
-            driftwood:       { radius: 1.0, biomes: [6],         solid: false },
-            icespike:        { radius: 0.8, biomes: [4],         solid: true  },
-            house:           { radius: 3.0, biomes: [1,2],       solid: true  },
-            pyramid:         { radius: 5.0, biomes: [3,6],       solid: true  },
-            castle:          { radius: 5.0, biomes: [1,2,4],     solid: true  },
-            temple:          { radius: 4.0, biomes: [1,2,5],     solid: true  },
-            tower:           { radius: 2.5, biomes: null,        solid: true  },
-            lighthouse:      { radius: 2.0, biomes: [6],         solid: true  },
-            windmill:        { radius: 2.5, biomes: [1],         solid: true  },
-            bridge:          { radius: 4.0, biomes: null,        solid: false },
-            statue:          { radius: 3.0, biomes: null,        solid: true  },
-            campfire:        { radius: 0.8, biomes: null,        solid: false },
-            well:            { radius: 1.0, biomes: [1,2],       solid: true  },
-            dock:            { radius: 2.0, biomes: [0,6],       solid: false },
-            ruins:           { radius: 2.5, biomes: null,        solid: true  },
-            market:          { radius: 1.5, biomes: null,        solid: true  },
-            fencerow:        { radius: 0.5, biomes: [1,2],       solid: true  },
-            bench:           { radius: 0.4, biomes: null,        solid: false },
-            lamppost:        { radius: 0.6, biomes: null,        solid: true  },
-            shipwreck:       { radius: 2.0, biomes: [6],         solid: true  },
+            // radius: collision size, solid: blocks MC, sink: how deep to embed in ground
+            // sink is in local units (before WORLD_SCALE), applied as negative height offset
+            // Larger footprint objects need more sink to avoid floating edges on curved terrain
+            tree:            { radius: 2.5, biomes: [1,2,5],    solid: true,  sink: 0.3  },
+            pine:            { radius: 2.0, biomes: [1,2,4],    solid: true,  sink: 0.2  },
+            palm:            { radius: 1.8, biomes: [5,6],      solid: true,  sink: 0.2  },
+            birch:           { radius: 2.0, biomes: [1,2],      solid: true,  sink: 0.2  },
+            deadtree:        { radius: 1.2, biomes: [3,4],      solid: true,  sink: 0.2  },
+            cactus:          { radius: 1.2, biomes: [3],         solid: true,  sink: 0.15 },
+            bush:            { radius: 0.8, biomes: [1,2,5],    solid: false, sink: 0.1  },
+            flower:          { radius: 0.3, biomes: [1,2,5,6],  solid: false, sink: 0.05 },
+            mushroom:        { radius: 0.4, biomes: [2,5],      solid: false, sink: 0.05 },
+            rock:            { radius: 1.0, biomes: null,        solid: true,  sink: 0.3  },
+            driftwood:       { radius: 1.0, biomes: [6],         solid: false, sink: 0.1  },
+            icespike:        { radius: 0.8, biomes: [4],         solid: true,  sink: 0.2  },
+            house:           { radius: 3.0, biomes: [1,2],       solid: true,  sink: 0.5  },
+            pyramid:         { radius: 5.0, biomes: [3,6],       solid: true,  sink: 0.8  },
+            castle:          { radius: 5.0, biomes: [1,2,4],     solid: true,  sink: 0.8  },
+            temple:          { radius: 4.0, biomes: [1,2,5],     solid: true,  sink: 0.6  },
+            tower:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.4  },
+            lighthouse:      { radius: 2.0, biomes: [6],         solid: true,  sink: 0.4  },
+            windmill:        { radius: 2.5, biomes: [1],         solid: true,  sink: 0.5  },
+            bridge:          { radius: 4.0, biomes: null,        solid: false, sink: 0, walkable: true },
+            statue:          { radius: 3.0, biomes: null,        solid: true,  sink: 0.4  },
+            campfire:        { radius: 0.8, biomes: null,        solid: false, sink: 0.05 },
+            well:            { radius: 1.0, biomes: [1,2],       solid: true,  sink: 0.3  },
+            dock:            { radius: 2.0, biomes: [0,6],       solid: false, sink: 0, walkable: true },
+            ruins:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.5  },
+            market:          { radius: 1.5, biomes: null,        solid: true,  sink: 0.3  },
+            fencerow:        { radius: 0.5, biomes: [1,2],       solid: true,  sink: 0.15 },
+            bench:           { radius: 0.4, biomes: null,        solid: false, sink: 0.1, walkable: true },
+            lamppost:        { radius: 0.6, biomes: null,        solid: true,  sink: 0.1  },
+            shipwreck:       { radius: 2.0, biomes: [6],         solid: true,  sink: 0.3  },
             npc:             { radius: 0.4, biomes: null,        solid: false },
             bird:            { radius: 0.2, biomes: null,        solid: false },
             butterfly:       { radius: 0.1, biomes: null,        solid: false },
@@ -564,6 +564,11 @@
                 scene.add(this.mesh);
                 world.register(this);
                 return this;
+            }
+
+            // Static helper: compute sink depth for a type at a given scale
+            static getSink(type, scale = WORLD_SCALE) {
+                return (getRules(type).sink || 0) * scale;
             }
         }
 
@@ -1306,7 +1311,9 @@
                       : Structure;
             const obj = new cls(type, factory(), lat, lon);
             obj.zone = _currentZone;
-            obj.placeOnPlanet().setScale(s * WORLD_SCALE).addToScene();
+            // Sink into ground based on object type — prevents floating edges on curved terrain
+            const sinkAmount = (getRules(type).sink || 0) * s * WORLD_SCALE;
+            obj.placeOnPlanet(-sinkAmount).setScale(s * WORLD_SCALE).addToScene();
             if (obj.mesh.userData.blades) windmills.push(obj.mesh.userData.blades);
             if (obj.mesh.userData.fireLight) fireLights.push(obj.mesh.userData.fireLight);
             return obj;
@@ -1350,221 +1357,177 @@
         }
 
         // ============================================================
+        // ZONE LAYOUTS — properly spaced for WORLD_SCALE 2.5
+        // 1 deg lat = 0.87 world units. Structures need 8-30 deg apart.
+        // ============================================================
+
         // ZONE 1: Pyramid Complex (Desert)
         _currentZone = 1;
-        // ============================================================
         placeLM("pyramid", ()=>mkPyramid(5), 15, -30, "Great Pyramid");
-        placeLM("pyramid", ()=>mkPyramid(3), 16.5, -28, "Small Pyramid");
-        place("pyramid", "structure", ()=>mkPyramid(1.8), 17, -27);
-        placeLM("campfire", ()=>mkCampfire(), 14, -32, "Desert Camp");
-        place("market", "furniture", mkMarket, 15.5, -32);
-        place("market", "furniture", mkMarket, 14.5, -29);
-        scatter("cactus", "vegetation", ()=>lpCactus(1.5+Math.random()*1.5), 15, -30, 6, 15);
-        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.5,0xa09880), 15, -30, 7, 20);
-        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 16, -32, 4, 5);
+        placeLM("pyramid", ()=>mkPyramid(3), 15, -4, "Small Pyramid");
+        place("pyramid", "structure", ()=>mkPyramid(1.8), 15, 14);
+        placeLM("campfire", ()=>mkCampfire(), 8, -30, "Desert Camp");
+        place("market", "furniture", mkMarket, 8, -22);
+        scatter("cactus", "vegetation", ()=>lpCactus(1.5+Math.random()*1.5), 12, -18, 22, 12);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.5,0xa09880), 12, -18, 24, 15);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 10, -35, 12, 4);
 
-        // ============================================================
         // ZONE 2: Mediterranean Village
         _currentZone = 2;
-        // ============================================================
         placeLM("temple", ()=>mkTemple(4), 35, 60, "Ancient Temple");
-        placeLM("house", ()=>mkHouse(2.5,0xf0f0f0), 36, 58, "Greek House");
-        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 35.5, 57);
-        place("house", "structure", ()=>mkHouse(2.2,0xdde0f0), 36.5, 59);
-        place("house", "structure", ()=>mkHouse(2,0xf0e8dd), 34.5, 59.5);
-        place("house", "structure", ()=>mkHouse(1.8,0xe8e0d0), 35.8, 61);
-        place("well", "furniture", mkWell, 35.5, 59);
-        place("market", "furniture", mkMarket, 36, 60.5);
-        place("market", "furniture", mkMarket, 35, 58.5);
-        place("bench", "furniture", mkBench, 35.3, 59.5);
-        place("bench", "furniture", mkBench, 36.2, 58);
-        place("lamppost", "furniture", mkLamppost, 35.5, 58.5);
-        place("lamppost", "furniture", mkLamppost, 36, 59.5);
-        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5,0x6a9a4a), 35.5, 59, 4, 18);
-        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 35.5, 59, 5, 15);
-        scatter("flower", "vegetation", lpFlower, 35.5, 59, 5, 25);
-        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.2), 35, 60, 4, 8);
-        placeNPC(0x6699dd,0, 35.3,59); placeNPC(0xdd6644,2, 36,58.5); placeNPC(0x66aa66,0, 35.8,60);
-        placeAnimal("unknown", mkButterfly, 35.5, 59, "flutter"); placeAnimal("unknown", mkButterfly, 36, 60, "flutter");
+        placeLM("house", ()=>mkHouse(2.5,0xf0f0f0), 35, 80, "Greek House");
+        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 35, 92);
+        place("house", "structure", ()=>mkHouse(2.2,0xdde0f0), 25, 62);
+        place("house", "structure", ()=>mkHouse(2,0xf0e8dd), 25, 74);
+        place("house", "structure", ()=>mkHouse(1.8,0xe8e0d0), 25, 86);
+        place("well", "furniture", mkWell, 30, 70);
+        place("market", "furniture", mkMarket, 30, 78);
+        place("bench", "furniture", mkBench, 31, 66); place("bench", "furniture", mkBench, 31, 74);
+        place("lamppost", "furniture", mkLamppost, 32, 68); place("lamppost", "furniture", mkLamppost, 32, 76);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5,0x6a9a4a), 30, 72, 18, 15);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 30, 72, 18, 12);
+        scatter("flower", "vegetation", lpFlower, 30, 72, 18, 20);
+        placeNPC(0x6699dd,0, 30,66); placeNPC(0xdd6644,2, 31,75); placeNPC(0x66aa66,0, 28,70);
+        placeAnimal("butterfly", mkButterfly, 30,72,'flutter'); placeAnimal("butterfly", mkButterfly, 32,78,'flutter');
 
-        // ============================================================
         // ZONE 3: Castle Highlands
         _currentZone = 3;
-        // ============================================================
         placeLM("castle", ()=>mkCastle(4), 50, -120, "Highland Castle");
-        place("house", "structure", ()=>mkHouse(2.5,0xe08860), 49, -121, 'Country Cottage');
-        place("house", "structure", ()=>mkHouse(2.8,0x6090cc), 49.5, -119);
-        place("house", "structure", ()=>mkHouse(2,0xe8d870), 48.5, -121.5);
-        place("well", "furniture", mkWell, 49.5, -120.5);
-        placeLM("campfire", ()=>mkCampfire(), 48.5, -120, "Castle Camp");
-        place("fencerow", "furniture", ()=>mkFenceRow(5,6), 49, -120);
-        place("fencerow", "furniture", ()=>mkFenceRow(4,5), 49.5, -121);
-        place("lamppost", "furniture", mkLamppost, 49.3, -120.5);
-        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*2), 50, -120, 6, 25);
-        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 49, -120, 4, 10);
-        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 49.5, -120, 5, 18);
-        scatter("flower", "vegetation", lpFlower, 49, -120, 5, 20);
-        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 50, -120, 5, 12);
-        placeNPC(0x888888,3, 50.2,-119.5); placeNPC(0x888888,3, 50.3,-120.5);
-        placeAnimal("sheep", ()=>mkSheep(), 48.5, -119, "wander"); placeAnimal("sheep", ()=>mkSheep(), 49, -119.5, "wander");
-        placeAnimal("sheep", ()=>mkSheep(), 48.8, -120.5, "wander");
-        placeAnimal("bird", ()=>mkBird(), 50, -120, "fly"); placeAnimal("bird", ()=>mkBird(0x886644), 50.5, -119, "fly");
+        place("house", "structure", ()=>mkHouse(2.5,0xe08860), 50, -136);
+        place("house", "structure", ()=>mkHouse(2.8,0x6090cc), 50, -106);
+        place("house", "structure", ()=>mkHouse(2,0xe8d870), 40, -120);
+        place("well", "furniture", mkWell, 43, -113);
+        placeLM("campfire", ()=>mkCampfire(), 43, -128, "Castle Camp");
+        place("lamppost", "furniture", mkLamppost, 45, -117);
+        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*2), 46, -120, 20, 18);
+        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 43, -116, 14, 6);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 45, -120, 18, 12);
+        scatter("flower", "vegetation", lpFlower, 45, -120, 18, 12);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 47, -120, 16, 8);
+        placeNPC(0x888888,3, 46,-117); placeNPC(0x888888,3, 46,-123);
+        placeAnimal("sheep", ()=>mkSheep(), 41,-115,'wander'); placeAnimal("sheep", ()=>mkSheep(), 42,-125,'wander');
+        placeAnimal("bird", ()=>mkBird(), 50,-120,'fly');
 
-        // ============================================================
         // ZONE 4: Dutch Countryside
         _currentZone = 4;
-        // ============================================================
         placeLM("windmill", ()=>mkWindmill(6), 48, 5, "Dutch Windmill");
-        place("house", "structure", ()=>mkHouse(2.2,0xe0a070), 47.5, 4);
-        place("house", "structure", ()=>mkHouse(2,0xdda880), 47, 6);
-        place("house", "structure", ()=>mkHouse(2.5,0xc8e090), 48.5, 4.5);
-        place("fencerow", "furniture", ()=>mkFenceRow(6,7), 47.5, 5);
-        place("fencerow", "furniture", ()=>mkFenceRow(5,6), 48, 3.5);
-        place("market", "furniture", mkMarket, 47.5, 5.5);
-        place("market", "furniture", mkMarket, 48, 6);
-        scatter("flower", "vegetation", lpFlower, 48, 5, 5, 45); // Dense flower field!
-        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 48, 5, 5, 12);
-        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 47.5, 5, 4, 14);
-        placeNPC(0xddaa44,2, 47.5,5.5); placeNPC(0x88aa66,2, 48,4);
-        placeAnimal("sheep", ()=>mkSheep(), 47.5, 4.5, "wander"); placeAnimal("sheep", ()=>mkSheep(), 48, 6.5, "wander");
-        placeAnimal("sheep", ()=>mkSheep(), 47, 5, "wander");
-        placeAnimal("unknown", mkButterfly, 48, 5, "flutter"); placeAnimal("unknown", mkButterfly, 47.5, 5.5, "flutter");
-        placeAnimal("unknown", mkButterfly, 48.5, 4, "flutter");
+        place("house", "structure", ()=>mkHouse(2.2,0xe0a070), 48, -8);
+        place("house", "structure", ()=>mkHouse(2,0xdda880), 48, 18);
+        place("house", "structure", ()=>mkHouse(2.5,0xc8e090), 38, 5);
+        place("market", "furniture", mkMarket, 40, 14);
+        scatter("flower", "vegetation", lpFlower, 44, 5, 20, 30);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 43, 5, 18, 8);
+        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 43, 5, 16, 10);
+        placeNPC(0xddaa44,2, 42,8); placeNPC(0x88aa66,2, 43,-2);
+        placeAnimal("sheep", ()=>mkSheep(), 41,0,'wander'); placeAnimal("sheep", ()=>mkSheep(), 41,10,'wander');
+        placeAnimal("butterfly", mkButterfly, 44,5,'flutter');
 
-        // ============================================================
         // ZONE 5: Lighthouse Coast
         _currentZone = 5;
-        // ============================================================
         placeLM("lighthouse", ()=>mkLighthouse(8), 25, 150, "Coastal Lighthouse");
-        place("dock", "structure", ()=>mkDock(5), 24.5, 151);
-        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 25.5, 149);
-        placeLM("campfire", ()=>mkCampfire(), 24, 150.5, "Beach Camp");
-        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 25, 150, 4, 8);
-        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.5), 25, 150, 4, 10);
-        scatter("driftwood", "vegetation", ()=>lpDriftwood(), 24.5, 150.5, 3, 5);
-        scatter("flower", "vegetation", lpFlower, 25.5, 149, 2, 8);
-        placeNPC(0xeee8dd,0, 25.2,149.5);
-        placeAnimal("crab", ()=>mkCrab(), 24.5, 150.5, "wander"); placeAnimal("crab", ()=>mkCrab(), 24, 151, "wander");
-        placeAnimal("bird", ()=>mkBird(0xeeeeee), 25, 150, "fly");
+        place("dock", "structure", ()=>mkDock(5), 16, 154);
+        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 25, 138);
+        placeLM("campfire", ()=>mkCampfire(), 19, 144, "Beach Camp");
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 22, 148, 12, 6);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.5), 20, 148, 12, 6);
+        placeNPC(0xeee8dd,0, 22,141);
+        placeAnimal("crab", ()=>mkCrab(), 17,153,'wander'); placeAnimal("bird", ()=>mkBird(0xeeeeee), 25,150,'fly');
 
-        // ============================================================
         // ZONE 6: Golden Bridge
         _currentZone = 6;
-        // ============================================================
         placeLM("bridge", ()=>mkBridge(10), 20, 120, "Golden Bridge");
-        place("house", "structure", ()=>mkHouse(2.2,0xdda080), 20.5, 118.5);
-        place("house", "structure", ()=>mkHouse(2,0xaaccdd), 19.5, 121.5);
-        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*2), 20, 120, 4, 10);
-        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 20, 120, 4, 8);
-        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.3), 20, 120, 3, 6);
+        place("house", "structure", ()=>mkHouse(2.2,0xdda080), 20, 98);
+        place("house", "structure", ()=>mkHouse(2,0xaaccdd), 20, 142);
+        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*2), 16, 120, 20, 6);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 16, 120, 18, 5);
 
-        // ============================================================
         // ZONE 7: Statue of Freedom
         _currentZone = 7;
-        // ============================================================
         placeLM("statue", ()=>mkStatue(6), 30, -70, "Statue of Freedom");
-        place("dock", "structure", ()=>mkDock(4), 29.5, -69);
-        place("bench", "furniture", mkBench, 30.5, -70.5); place("bench", "furniture", mkBench, 30.2, -69.5);
-        place("bench", "furniture", mkBench, 29.8, -70.3); place("bench", "furniture", mkBench, 30.5, -69.8);
-        place("lamppost", "furniture", mkLamppost, 30.3, -70.3); place("lamppost", "furniture", mkLamppost, 29.7, -69.7);
-        scatter("bush", "vegetation", ()=>lpBush(.35+Math.random()*.2), 30, -70, 3, 12);
-        scatter("flower", "vegetation", lpFlower, 30, -70, 3, 20);
-        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()), 30, -70, 3, 6);
+        place("dock", "structure", ()=>mkDock(4), 20, -66);
+        place("bench", "furniture", mkBench, 30, -80); place("bench", "furniture", mkBench, 30, -60);
+        place("lamppost", "furniture", mkLamppost, 27, -76); place("lamppost", "furniture", mkLamppost, 27, -64);
+        scatter("bush", "vegetation", ()=>lpBush(.35+Math.random()*.2), 27, -70, 14, 8);
+        scatter("flower", "vegetation", lpFlower, 27, -70, 14, 12);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()), 24, -70, 12, 4);
 
-        // ============================================================
         // ZONE 8: Tropical Jungle
         _currentZone = 8;
-        // ============================================================
         place("ruins", "structure", ()=>mkRuins(3), 10, 80);
-        placeLM("campfire", ()=>mkCampfire(), 11, 82, "Jungle Camp");
-        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*3), 10, 80, 8, 45);
-        scatter("tree", "vegetation", ()=>lpTree(3+Math.random()*2,0x2a7a35), 10, 80, 8, 25);
-        scatter("bush", "vegetation", ()=>lpBush(.5+Math.random()*.4,0x3a8a3a), 10, 80, 8, 30);
-        scatter("flower", "vegetation", lpFlower, 10, 80, 7, 20);
-        scatter("mushroom", "vegetation", ()=>lpMushroom(.12+Math.random()*.08), 10, 80, 6, 15);
-        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 10, 80, 7, 10);
-        placeNPC(0xaa7744,3, 11,82);
-        placeAnimal("unknown", mkButterfly, 10, 80, "flutter"); placeAnimal("unknown", mkButterfly, 10.5, 81, "flutter");
-        placeAnimal("unknown", mkButterfly, 9.5, 79, "flutter");
-        placeAnimal("bird", ()=>mkBird(0x33aa33), 10, 80, "fly"); placeAnimal("bird", ()=>mkBird(0xdd4444), 10.5, 81, "fly");
+        placeLM("campfire", ()=>mkCampfire(), 4, 92, "Jungle Camp");
+        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*3), 7, 86, 22, 28);
+        scatter("tree", "vegetation", ()=>lpTree(3+Math.random()*2,0x2a7a35), 7, 86, 22, 18);
+        scatter("bush", "vegetation", ()=>lpBush(.5+Math.random()*.4,0x3a8a3a), 7, 86, 24, 20);
+        scatter("flower", "vegetation", lpFlower, 7, 86, 20, 12);
+        scatter("mushroom", "vegetation", ()=>lpMushroom(.12+Math.random()*.08), 7, 86, 18, 10);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 7, 86, 20, 6);
+        placeNPC(0xaa7744,3, 4,93);
+        placeAnimal("butterfly", mkButterfly,8,84,'flutter'); placeAnimal("butterfly", mkButterfly,10,90,'flutter');
+        placeAnimal("bird", ()=>mkBird(0x33aa33),8,86,'fly');
 
-        // ============================================================
         // ZONE 9: Snowy Peak
         _currentZone = 9;
-        // ============================================================
         placeLM("campfire", ()=>mkCampfire(), 65, 30, "Mountain Camp");
-        place("ruins", "structure", ()=>mkRuins(2), 66, 28);
-        scatter("pine", "vegetation", ()=>lpPine(2.5+Math.random()*2,true), 65, 30, 8, 25);
-        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), 65, 30, 7, 15);
-        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()), 66, 29, 5, 10);
-        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 64, 32, 5, 8);
-        placeNPC(0xdd6644,3, 65.2,30.5);
-        placeAnimal("bird", ()=>mkBird(0xaabbcc), 65, 30, "fly");
+        place("ruins", "structure", ()=>mkRuins(2), 65, 44);
+        scatter("pine", "vegetation", ()=>lpPine(2.5+Math.random()*2,true), 62, 36, 20, 16);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), 62, 36, 18, 10);
+        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()), 66, 40, 14, 6);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 58, 32, 14, 5);
+        placeNPC(0xdd6644,3, 64,32);
+        placeAnimal("bird", ()=>mkBird(0xaabbcc),65,36,'fly');
 
-        // ============================================================
         // ZONE 10: Grand Tower Plaza
         _currentZone = 10;
-        // ============================================================
         placeLM("tower", ()=>mkTower(10), 42, 20, "Grand Tower");
-        place("ruins", "structure", ()=>mkRuins(2), 41.5, 21);
-        place("market", "furniture", mkMarket, 42.5, 19.5);
-        place("bench", "furniture", mkBench, 42.3, 20.3); place("bench", "furniture", mkBench, 41.8, 19.8);
-        place("lamppost", "furniture", mkLamppost, 42.2, 19.5); place("lamppost", "furniture", mkLamppost, 41.8, 20.5);
-        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 42, 20, 4, 12);
-        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 42, 20, 4, 10);
-        scatter("flower", "vegetation", lpFlower, 42, 20, 4, 15);
-        placeNPC(0x6699dd,0, 42.3,20); placeNPC(0xddaa44,1, 41.8,19.8);
+        place("ruins", "structure", ()=>mkRuins(2), 42, 36);
+        place("market", "furniture", mkMarket, 34, 20);
+        place("bench", "furniture", mkBench, 36, 14); place("bench", "furniture", mkBench, 36, 26);
+        place("lamppost", "furniture", mkLamppost, 37, 16); place("lamppost", "furniture", mkLamppost, 37, 24);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 38, 22, 16, 8);
+        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 38, 22, 14, 6);
+        scatter("flower", "vegetation", lpFlower, 38, 22, 14, 10);
+        placeNPC(0x6699dd,0, 37,20); placeNPC(0xddaa44,1, 36,26);
 
-        // ============================================================
         // ZONE 11: Beach Resort
         _currentZone = 11;
-        // ============================================================
         place("house", "structure", ()=>mkHouse(2,0xff9966), 5, -100);
-        place("house", "structure", ()=>mkHouse(1.8,0x66ccaa), 5.5, -101);
-        place("dock", "structure", ()=>mkDock(4), 4.5, -99.5);
-        placeLM("campfire", ()=>mkCampfire(), 4, -100.5, "Beach Resort");
-        place("shipwreck", "structure", mkShipwreck, 3.5, -98);
-        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 5, -100, 5, 10);
-        scatter("driftwood", "vegetation", ()=>lpDriftwood(), 4, -100, 4, 6);
-        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.3), 5, -100, 4, 8);
-        placeAnimal("crab", ()=>mkCrab(), 4, -100, "wander"); placeAnimal("crab", ()=>mkCrab(), 4.5, -99, "wander");
-        placeAnimal("crab", ()=>mkCrab(), 3.5, -100.5, "wander");
+        place("house", "structure", ()=>mkHouse(1.8,0x66ccaa), 5, -112);
+        place("dock", "structure", ()=>mkDock(4), -4, -96);
+        placeLM("campfire", ()=>mkCampfire(), -1, -106, "Beach Resort");
+        place("shipwreck", "structure", mkShipwreck, -6, -88);
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 1, -102, 16, 6);
+        scatter("driftwood", "vegetation", ()=>lpDriftwood(), -2, -100, 12, 4);
+        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.3), 1, -98, 14, 5);
+        placeAnimal("crab", ()=>mkCrab(),-2,-98,'wander'); placeAnimal("crab", ()=>mkCrab(),-3,-102,'wander');
 
-        // ============================================================
         // ZONE 12: Deep Forest
         _currentZone = 12;
-        // ============================================================
-        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*3), 55, 60, 7, 35);
-        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 55, 60, 6, 15);
-        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.4), 55, 60, 7, 22);
-        scatter("mushroom", "vegetation", ()=>lpMushroom(.1+Math.random()*.1), 55, 60, 6, 15);
-        scatter("flower", "vegetation", lpFlower, 55, 60, 6, 12);
-        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.3), 55, 60, 6, 10);
-        place("well", "furniture", mkWell, 55, 61);
-        place("ruins", "structure", ()=>mkRuins(2), 54, 59);
-        placeAnimal("bird", ()=>mkBird(0x448866), 55, 60, "fly");
-        placeAnimal("unknown", mkButterfly, 55.5, 60.5, "flutter");
+        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*3), 55, 60, 20, 20);
+        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 55, 60, 18, 10);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.4), 55, 60, 20, 15);
+        scatter("mushroom", "vegetation", ()=>lpMushroom(.1+Math.random()*.1), 55, 60, 16, 10);
+        scatter("flower", "vegetation", lpFlower, 55, 60, 16, 8);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.3), 55, 60, 18, 6);
+        place("well", "furniture", mkWell, 55, 72);
+        place("ruins", "structure", ()=>mkRuins(2), 50, 52);
+        placeAnimal("bird", ()=>mkBird(0x448866),55,60,'fly');
+        placeAnimal("butterfly", mkButterfly,56,64,'flutter');
 
-        // ============================================================
         // ZONE 13: Desert Oasis
         _currentZone = 13;
-        // ============================================================
-        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 12, -60, 3, 8);
-        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3,0x5cb85c), 12, -60, 3, 12);
-        scatter("flower", "vegetation", lpFlower, 12, -60, 3, 15);
-        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.3), 12, -60, 3, 5);
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 12, -60, 12, 5);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3,0x5cb85c), 12, -60, 12, 8);
+        scatter("flower", "vegetation", lpFlower, 12, -60, 10, 10);
         placeLM("campfire", ()=>mkCampfire(), 12, -60, "Oasis Camp");
-        place("market", "furniture", mkMarket, 12.5, -59.5);
-        placeNPC(0xddaa44,3, 12.3,-59.8);
+        place("market", "furniture", mkMarket, 12, -52);
+        placeNPC(0xddaa44,3, 12,-55);
 
-        // ============================================================
         // ZONE 14: Southern Tundra
         _currentZone = 14;
-        // ============================================================
-        scatter("pine", "vegetation", ()=>lpPine(2+Math.random()*2,true), -55, 0, 8, 18);
-        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()*1.5), -55, 0, 7, 12);
-        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), -55, 0, 8, 15);
-        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), -55, 0, 6, 8);
+        scatter("pine", "vegetation", ()=>lpPine(2+Math.random()*2,true), -55, 0, 22, 12);
+        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()*1.5), -55, 0, 20, 8);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), -55, 0, 22, 10);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), -55, 0, 18, 5);
 
         // ============================================================
         // SPARSE GLOBAL FILL (between zones)
@@ -1580,7 +1543,12 @@
             else if(b.type===4&&r<.15) obj=lpPine(2+Math.random()*1.5,true);
             else if(b.type===5&&r<.25) obj=lpPalm(3+Math.random()*2);
             else if(b.type===6&&r<.08) obj=lpPalm(2.5+Math.random()*1.5);
-            if(obj){const p=placeOnPlanet(lat,lon);orientToSurface(obj,p);obj.scale.setScalar((.5+Math.random()*.5)*WORLD_SCALE);scene.add(obj);}
+            if(obj){
+                const s=(.5+Math.random()*.5)*WORLD_SCALE;
+                const sink=0.2*s; // default sink for global fill vegetation
+                const p=placeOnPlanet(lat,lon,-sink);
+                orientToSurface(obj,p);obj.scale.setScalar(s);scene.add(obj);
+            }
         }
 
         // ============================================================
@@ -1795,28 +1763,95 @@
         const _charRay = new THREE.Raycaster();
 
         function updateChar() {
-            // Raycast to find the actual mesh face under the character
             const dir = player.groundPos.clone().normalize();
+
+            // Find the ground: planet mesh
             _charRay.set(dir.clone().multiplyScalar(PR + 10), dir.clone().negate());
             _charRay.far = 20;
-            const hits = _charRay.intersectObject(planet);
-            if (hits.length > 0) {
-                player.groundPos.copy(hits[0].point);
-            } else {
-                // Fallback to analytical if ray misses
-                const r = groundHeight(dir.x, dir.y, dir.z);
-                player.groundPos.set(dir.x * r, dir.y * r, dir.z * r);
+            const planetHits = _charRay.intersectObject(planet);
+            let groundR = planetHits.length > 0 ? planetHits[0].point.length() : groundHeight(dir.x, dir.y, dir.z);
+
+            // Build mesh lists once
+            if (!window._solidMeshes || window._solidMeshes.length === 0) {
+                window._solidMeshes = [];
+                window._walkableMeshes = [];
+                for (const obj of world.all) {
+                    if (!obj.pos) continue;
+                    const rules = getRules(obj.type);
+                    if (rules.solid && obj.collision) window._solidMeshes.push(obj.mesh);
+                    // Walkable = solid OR explicitly walkable (docks, bridges, benches)
+                    if ((rules.solid || rules.walkable) && obj.mesh) window._walkableMeshes.push(obj.mesh);
+                }
             }
+
+            // Check for landable object surfaces below MC
+            let landingR = groundR;
+            let onObject = false;
+
+            if (player.airborne > 0.05 || player.onObject) {
+                const mcWorldPos = dir.clone().multiplyScalar(groundR + player.airborne + 1);
+                _charRay.set(mcWorldPos, dir.clone().negate());
+                _charRay.far = player.airborne + 4;
+                const objHits = _charRay.intersectObjects(window._walkableMeshes, true);
+
+                for (const hit of objHits) {
+                    if (!hit.face) continue;
+                    // Accept any surface that faces even slightly outward (> 0.15)
+                    const fn = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+                    if (fn.dot(dir) < 0.15) continue; // nearly vertical wall — skip
+
+                    const surfR = hit.point.length();
+                    if (surfR > landingR) {
+                        landingR = surfR;
+                        onObject = true;
+                    }
+                    break;
+                }
+            }
+
+            // If was on object but now no valid surface found, fall
+            if (player.onObject && !onObject && player.airborne > 0.1) {
+                player.grounded = false;
+            }
+
+            // Head collision — when rising, check for solid objects above MC
+            // If hit, stop upward velocity and start falling from that point
+            if (player.vAir > 0) {
+                const headPos = dir.clone().multiplyScalar(groundR + player.airborne + CH);
+                _charRay.set(headPos, dir.clone()); // ray points outward (up from surface)
+                _charRay.far = player.vAir * 2 + 1; // search distance based on upward speed
+                const ceilingHits = _charRay.intersectObjects(window._walkableMeshes, true);
+                if (ceilingHits.length > 0) {
+                    // Hit a ceiling — stop rising, start falling
+                    const ceilR = ceilingHits[0].point.length();
+                    const maxAirborne = ceilR - groundR - CH; // head touches ceiling
+                    if (player.airborne > maxAirborne - 0.1) {
+                        player.airborne = Math.max(0, maxAirborne - 0.1);
+                        player.vAir = 0; // bonk — stop rising
+                    }
+                }
+            }
+
+            // Set ground position to planet surface (for movement reference)
+            player.groundPos.copy(dir.clone().multiplyScalar(groundR));
 
             const move = getFrame();
 
             // Gravity
             if (!player.grounded) player.vAir -= GRAVITY;
             player.airborne += player.vAir;
-            if (player.airborne <= 0) { player.airborne = 0; player.vAir = 0; player.grounded = true; }
 
-            // Position = surface point + jump offset
-            const pos = player.groundPos.clone().add(move.up.clone().multiplyScalar(player.airborne));
+            // Landing check: MC feet at groundR + airborne, landing surface at landingR
+            const feetR = groundR + player.airborne;
+            if (feetR <= landingR) {
+                player.airborne = landingR - groundR; // stand on the surface
+                player.vAir = 0;
+                player.grounded = true;
+                player.onObject = onObject;
+            }
+
+            // Position
+            const pos = dir.clone().multiplyScalar(groundR + player.airborne);
             character.position.copy(pos);
 
             // Stand straight up (radial). Simple, stable, no tilt bugs.
@@ -1845,9 +1880,19 @@
             const r = groundHeight(dir.x, dir.y, dir.z);
             const candidatePos = new THREE.Vector3(dir.x * r, dir.y * r, dir.z * r);
 
-            // Collision: raycast from MC toward movement direction.
-            // Multiple rays at different heights and lateral offsets to catch walls,
-            // fences, and objects the MC might clip past.
+            // COLLISION — mesh raycast.
+            // Boundary = visible mesh surface. Walk between columns,
+            // through doorways, bump into walls and trunks.
+            // Collect solid meshes once.
+            if (!window._solidMeshes || window._solidMeshes.length === 0) {
+                window._solidMeshes = [];
+                for (const obj of world.all) {
+                    if (!obj.collision || !obj.pos) continue;
+                    if (!getRules(obj.type).solid) continue;
+                    window._solidMeshes.push(obj.mesh);
+                }
+            }
+
             player._collisions = 0;
             player._blockedBy = 'none';
 
@@ -1858,44 +1903,35 @@
                 const up = player.groundPos.clone().normalize();
                 const lateral = new THREE.Vector3().crossVectors(moveDir, up).normalize();
 
-                // Collect solid meshes once
-                if (!window._solidMeshes) {
-                    window._solidMeshes = [];
-                    for (const obj of world.all) {
-                        if (!obj.collision || !obj.pos) continue;
-                        if (!getRules(obj.type).solid) continue;
-                        window._solidMeshes.push(obj.mesh);
-                    }
-                }
+                // Base height: ground level + airborne (so rays work on rooftops too)
+                const base = player.groundPos.clone().add(up.clone().multiplyScalar(player.airborne));
 
-                // Cast 5 rays: center + left/right at ground and chest height
-                const origins = [
-                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)),                          // ground center
-                    player.groundPos.clone().add(up.clone().multiplyScalar(1.0)),                          // chest center
-                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(MC_RADIUS)),  // ground right
-                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(-MC_RADIUS)), // ground left
-                    player.groundPos.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(MC_RADIUS)),  // chest right
+                // 7 rays at various heights and lateral offsets
+                const rays = [
+                    base.clone().add(up.clone().multiplyScalar(0.15)),
+                    base.clone().add(up.clone().multiplyScalar(0.5)),
+                    base.clone().add(up.clone().multiplyScalar(1.0)),
+                    base.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(MC_RADIUS)),
+                    base.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(-MC_RADIUS)),
+                    base.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(MC_RADIUS)),
+                    base.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(-MC_RADIUS)),
                 ];
 
-                let closestHitDist = Infinity;
-                let hitInfo = null;
-
-                for (const origin of origins) {
+                let closest = Infinity;
+                for (const origin of rays) {
                     _charRay.set(origin, moveDir);
                     _charRay.far = moveDist + MC_RADIUS;
                     const hits = _charRay.intersectObjects(window._solidMeshes, true);
-                    if (hits.length > 0 && hits[0].distance < closestHitDist) {
-                        closestHitDist = hits[0].distance;
-                        hitInfo = hits[0];
+                    if (hits.length > 0 && hits[0].distance < closest) {
+                        closest = hits[0].distance;
                     }
                 }
 
-                if (hitInfo && closestHitDist < moveDist + MC_RADIUS) {
+                if (closest < moveDist + MC_RADIUS) {
                     player._collisions = 1;
-                    player._blockedBy = (hitInfo.object.parent?.type || hitInfo.object.name || 'solid') + ' d=' + closestHitDist.toFixed(2);
-                    // Stop MC_RADIUS before the hit
-                    const stopDist = Math.max(0, closestHitDist - MC_RADIUS);
-                    const stopPos = player.groundPos.clone().add(moveDir.clone().multiplyScalar(stopDist));
+                    player._blockedBy = 'mesh d=' + closest.toFixed(2);
+                    const stop = Math.max(0, closest - MC_RADIUS);
+                    const stopPos = player.groundPos.clone().add(moveDir.clone().multiplyScalar(stop));
                     const d2 = stopPos.normalize();
                     const r2 = groundHeight(d2.x, d2.y, d2.z);
                     candidatePos.set(d2.x * r2, d2.y * r2, d2.z * r2);
@@ -2149,6 +2185,7 @@
                 _debugVisible = !_debugVisible;
                 _debugEl.classList.toggle('visible', _debugVisible);
                 charShadow.visible = _debugVisible;
+                buildDebugShapes();
                 for (const s of _debugShapes) s.visible = _debugVisible;
                 _mcCircle.visible = _debugVisible;
             }
@@ -2233,7 +2270,7 @@
                 `MC → meshface: ${visualGap.toFixed(4)} (${(visualGap/1.8*100).toFixed(1)}% MC)`,
                 `Mesh face R:  ${meshFaceR.toFixed(3)}`,
                 `Airborne:     ${player.airborne.toFixed(3)}`,
-                `Grounded:     ${player.grounded}`,
+                `Grounded:     ${player.grounded}${player.onObject ? ' (on object)' : ''}`,
                 ``,
                 `--- MC ORIENTATION ---`,
                 `MC up:        [${mcUp.x.toFixed(3)}, ${mcUp.y.toFixed(3)}, ${mcUp.z.toFixed(3)}]`,
@@ -2313,8 +2350,8 @@
 
             // A/D = strafe left/right, mouse = turn
             let strafeInput = 0;
-            if (keys.KeyA || keys.ArrowLeft)  strafeInput -= 1;
-            if (keys.KeyD || keys.ArrowRight) strafeInput += 1;
+            if (keys.KeyA || keys.ArrowLeft)  strafeInput += 1;
+            if (keys.KeyD || keys.ArrowRight) strafeInput -= 1;
             if (strafeInput) {
                 const targetS = strafeInput * maxSpd * 0.7; // strafe is 70% of walk speed
                 player.vStrafe = (player.vStrafe || 0) + (targetS - (player.vStrafe || 0)) * accel * controlFactor * dt * 60;
@@ -2510,20 +2547,25 @@
             _testRunning = false;
         }
 
-        // Set collision bounds — box for structures, circle for vegetation.
-        // All measurements in the object's LOCAL tangent space on the sphere.
+        // Mark solid objects and make them double-sided for raycasting
         for (const obj of world.all) {
             if (!obj.mesh) continue;
             const rules = getRules(obj.type);
-            if (!rules.solid) { obj.collision = null; continue; }
-
-            obj.collision = true; // just mark as solid, raycast does the rest
+            if (!rules.solid && !rules.walkable) { obj.collision = null; continue; }
+            obj.collision = true;
+            obj.mesh.traverse(child => {
+                if (child.isMesh && child.material) {
+                    if (Array.isArray(child.material)) child.material.forEach(m => { m.side = THREE.DoubleSide; });
+                    else child.material.side = THREE.DoubleSide;
+                }
+            });
         }
         console.log('Collision bounds set for', world.all.length, 'objects');
 
         // Debug visualization (F3 mode)
-        // No debug shapes needed — collision is the mesh itself
+        // Debug shapes placeholder (collision is mesh-based, no visualization needed)
         const _debugShapes = [];
+        function buildDebugShapes() {}
 
         // MC collision circle
         const _mcCircle = new THREE.Mesh(
