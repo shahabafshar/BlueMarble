@@ -107,7 +107,7 @@
     </div>
 
     <div id="controls-hint">
-        W forward &bull; S back &bull; A/D turn &bull; Mouse to look &bull; Scroll zoom &bull; Space jump &bull; 1/2/3 camera &bull; P photo &bull; O selfie
+        W forward &bull; S back &bull; A/D strafe &bull; Mouse to look &bull; Scroll zoom &bull; Space jump &bull; 1/2/3 camera &bull; P photo &bull; O selfie
     </div>
 
     <button id="photo-btn" title="Take Photo">&#128247;</button>
@@ -531,18 +531,7 @@
             // Biome check
             if (rules.biomes && !rules.biomes.includes(biome.type)) return false;
 
-            // Overlap check — radii are in world units (post-WORLD_SCALE visual size)
-            const minDist = rules.radius;
-            const searchDeg = Math.max(3, minDist / (PR * Math.PI / 180));
-            const neighbors = spatialGrid.nearby(lat, lon, searchDeg);
-            const testPos = placeOnPlanet(lat, lon);
-
-            for (const nb of neighbors) {
-                const nbRules = getRules(nb.type);
-                const req = rules.radius + nbRules.radius;
-                if (testPos.distanceTo(nb.pos) < req) return false;
-            }
-
+            // TODO: overlap check disabled — needs surface distance, not 3D euclidean
             return true;
         }
 
@@ -1327,6 +1316,7 @@
         function placeLM(type, factory, lat, lon, name, s = 1) {
             const obj = place(type, 'structure', factory, lat, lon, s);
             obj.name = name;
+            world.landmarks.push(obj); // register as landmark (after place, since name is set after register)
             return obj;
         }
 
@@ -1843,45 +1833,72 @@
         // Move the player along the planet surface with collision.
         const MC_RADIUS = 0.4;
 
-        function moveOnSurface(fwdAmount, turnAmount) {
+        function moveOnSurface(fwdAmount, strafeAmount, turnAmount) {
             player.heading += turnAmount;
-            if (Math.abs(fwdAmount) < 0.00001) return;
+            if (Math.abs(fwdAmount) < 0.00001 && Math.abs(strafeAmount) < 0.00001) return;
 
-            const { fw } = getFrame();
-            const moveVec = fw.clone().multiplyScalar(fwdAmount);
+            const frame = getFrame();
+            const moveVec = frame.fw.clone().multiplyScalar(fwdAmount)
+                .add(frame.rt.clone().negate().multiplyScalar(strafeAmount));
             const newWorldPos = player.groundPos.clone().add(moveVec);
             const dir = newWorldPos.normalize();
             const r = groundHeight(dir.x, dir.y, dir.z);
             const candidatePos = new THREE.Vector3(dir.x * r, dir.y * r, dir.z * r);
 
-            // Simple brute force collision against all solid objects
+            // Collision: raycast from MC toward movement direction.
+            // Multiple rays at different heights and lateral offsets to catch walls,
+            // fences, and objects the MC might clip past.
             player._collisions = 0;
-            for (const obj of world.all) {
-                if (!obj.pos) continue;
-                const rules = getRules(obj.type);
-                if (!rules.solid) continue;
+            player._blockedBy = 'none';
 
-                const minDist = rules.radius + MC_RADIUS;
-                const dist = candidatePos.distanceTo(obj.pos);
+            const moveDir = candidatePos.clone().sub(player.groundPos);
+            const moveDist = moveDir.length();
+            if (moveDist > 0.001) {
+                moveDir.normalize();
+                const up = player.groundPos.clone().normalize();
+                const lateral = new THREE.Vector3().crossVectors(moveDir, up).normalize();
 
-                if (dist < minDist) {
-                    player._collisions++;
-                    // Push character out of the object
-                    const push = candidatePos.clone().sub(obj.pos);
-                    const up = candidatePos.clone().normalize();
-                    // Project onto tangent plane
-                    push.sub(up.clone().multiplyScalar(push.dot(up)));
-                    if (push.lengthSq() > 0.0001) {
-                        push.normalize();
-                        candidatePos.copy(obj.pos).add(push.multiplyScalar(minDist + 0.01));
-                        // Re-snap to ground
-                        const d2 = candidatePos.normalize();
-                        const r2 = groundHeight(d2.x, d2.y, d2.z);
-                        candidatePos.set(d2.x * r2, d2.y * r2, d2.z * r2);
-                    } else {
-                        // Directly on top — don't move
-                        return;
+                // Collect solid meshes once
+                if (!window._solidMeshes) {
+                    window._solidMeshes = [];
+                    for (const obj of world.all) {
+                        if (!obj.collision || !obj.pos) continue;
+                        if (!getRules(obj.type).solid) continue;
+                        window._solidMeshes.push(obj.mesh);
                     }
+                }
+
+                // Cast 5 rays: center + left/right at ground and chest height
+                const origins = [
+                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)),                          // ground center
+                    player.groundPos.clone().add(up.clone().multiplyScalar(1.0)),                          // chest center
+                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(MC_RADIUS)),  // ground right
+                    player.groundPos.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(-MC_RADIUS)), // ground left
+                    player.groundPos.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(MC_RADIUS)),  // chest right
+                ];
+
+                let closestHitDist = Infinity;
+                let hitInfo = null;
+
+                for (const origin of origins) {
+                    _charRay.set(origin, moveDir);
+                    _charRay.far = moveDist + MC_RADIUS;
+                    const hits = _charRay.intersectObjects(window._solidMeshes, true);
+                    if (hits.length > 0 && hits[0].distance < closestHitDist) {
+                        closestHitDist = hits[0].distance;
+                        hitInfo = hits[0];
+                    }
+                }
+
+                if (hitInfo && closestHitDist < moveDist + MC_RADIUS) {
+                    player._collisions = 1;
+                    player._blockedBy = (hitInfo.object.parent?.type || hitInfo.object.name || 'solid') + ' d=' + closestHitDist.toFixed(2);
+                    // Stop MC_RADIUS before the hit
+                    const stopDist = Math.max(0, closestHitDist - MC_RADIUS);
+                    const stopPos = player.groundPos.clone().add(moveDir.clone().multiplyScalar(stopDist));
+                    const d2 = stopPos.normalize();
+                    const r2 = groundHeight(d2.x, d2.y, d2.z);
+                    candidatePos.set(d2.x * r2, d2.y * r2, d2.z * r2);
                 }
             }
 
@@ -2132,6 +2149,8 @@
                 _debugVisible = !_debugVisible;
                 _debugEl.classList.toggle('visible', _debugVisible);
                 charShadow.visible = _debugVisible;
+                for (const s of _debugShapes) s.visible = _debugVisible;
+                _mcCircle.visible = _debugVisible;
             }
         });
 
@@ -2248,6 +2267,9 @@
                 `Nearby:       ${player._nearbyCount || 0}`,
                 `Nearby solid: ${(() => { const ll = worldToLatLon(character.position); return spatialGrid.nearby(ll.lat, ll.lon, 5).filter(o => getRules(o.type).solid).length; })()}`,
                 `Collisions:   ${player._collisions || 0}`,
+                `Blocked by:   ${player._blockedBy || 'none'}`,
+                `SolidInWorld: ${world.all.filter(o=>o.collision&&getRules(o.type).solid).length}`,
+                `Closest obj:  ${(() => { const cd=player.groundPos.clone().normalize(); let md=Infinity; for(const o of world.all){if(!o.pos||!o.collision)continue;const od=o.pos.clone().normalize();const d=Math.acos(Math.max(-1,Math.min(1,cd.dot(od))))*PR;if(d<md)md=d;} return md.toFixed(2); })()}`,
             ];
 
             _debugEl.textContent = lines.join('\n');
@@ -2289,18 +2311,18 @@
             const grounded = player.grounded;
             const controlFactor = grounded ? 1.0 : AIR_CONTROL;
 
-            // Turning (acceleration + drag)
-            let turnInput = 0;
-            if (keys.KeyA || keys.ArrowLeft)  turnInput -= 1;
-            if (keys.KeyD || keys.ArrowRight) turnInput += 1;
-            if (turnInput) {
-                player.vTurn += turnInput * TURN_ACCEL * controlFactor * dt * 60;
-                player.vTurn = Math.max(-MAX_TURN, Math.min(MAX_TURN, player.vTurn));
+            // A/D = strafe left/right, mouse = turn
+            let strafeInput = 0;
+            if (keys.KeyA || keys.ArrowLeft)  strafeInput -= 1;
+            if (keys.KeyD || keys.ArrowRight) strafeInput += 1;
+            if (strafeInput) {
+                const targetS = strafeInput * maxSpd * 0.7; // strafe is 70% of walk speed
+                player.vStrafe = (player.vStrafe || 0) + (targetS - (player.vStrafe || 0)) * accel * controlFactor * dt * 60;
             }
-            player.vTurn *= TURN_DRAG;
-            if (Math.abs(player.vTurn) < 0.0002) player.vTurn = 0;
+            player.vStrafe = (player.vStrafe || 0) * (grounded ? (GROUND_DRAG * surfaceDragMul) : AIR_DRAG);
+            if (Math.abs(player.vStrafe || 0) < 0.0001) player.vStrafe = 0;
 
-            // Forward/back (acceleration + drag)
+            // Forward/back
             let fwdInput = 0;
             if (keys.KeyW || keys.ArrowUp)   fwdInput += 1;
             if (keys.KeyS || keys.ArrowDown) fwdInput -= 1;
@@ -2311,8 +2333,8 @@
             player.vFwd *= grounded ? (GROUND_DRAG * surfaceDragMul) : AIR_DRAG;
             if (Math.abs(player.vFwd) < 0.0001) player.vFwd = 0;
 
-            // Apply movement on the actual mesh surface
-            moveOnSurface(player.vFwd, -player.vTurn);
+            // Apply movement
+            moveOnSurface(player.vFwd, player.vStrafe || 0, 0);
 
             // Jumping
             if (keys.Space && grounded) {
@@ -2353,7 +2375,12 @@
             mmT+=dt; if(mmT>0.5){drawMinimap();mmT=0;}
 
             // Debug measurements (toggle with F3)
-            if(_debugVisible) updateDebugPanel(cs, dt);
+            if(_debugVisible) {
+                updateDebugPanel(cs, dt);
+                // Update MC collision circle position
+                _mcCircle.position.copy(player.groundPos.clone().add(cs.up.clone().multiplyScalar(0.1)));
+                _mcCircle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), cs.up);
+            }
 
             renderer.render(scene,camera);
         }
@@ -2482,6 +2509,29 @@
             console.log('=== TEST COMPLETE ===');
             _testRunning = false;
         }
+
+        // Set collision bounds — box for structures, circle for vegetation.
+        // All measurements in the object's LOCAL tangent space on the sphere.
+        for (const obj of world.all) {
+            if (!obj.mesh) continue;
+            const rules = getRules(obj.type);
+            if (!rules.solid) { obj.collision = null; continue; }
+
+            obj.collision = true; // just mark as solid, raycast does the rest
+        }
+        console.log('Collision bounds set for', world.all.length, 'objects');
+
+        // Debug visualization (F3 mode)
+        // No debug shapes needed — collision is the mesh itself
+        const _debugShapes = [];
+
+        // MC collision circle
+        const _mcCircle = new THREE.Mesh(
+            new THREE.RingGeometry(MC_RADIUS - 0.03, MC_RADIUS + 0.03, 16),
+            new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide })
+        );
+        _mcCircle.visible = false;
+        scene.add(_mcCircle);
 
         // Expose for external testing
         window._game = { player, character, camera, scene, renderer, world, updateChar, updateCam,
