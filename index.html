@@ -352,6 +352,320 @@
         }
 
         // ============================================================
+        // WORLD OBJECT CLASS HIERARCHY
+        // ============================================================
+        // Central registry — every placed object is tracked here.
+        // ============================================================
+        // SPATIAL GRID — fast neighbor queries on the sphere surface
+        // ============================================================
+        const spatialGrid = {
+            cellSize: 5, // degrees
+            cells: {},
+
+            _key(lat, lon) {
+                const cLat = Math.floor(lat / this.cellSize);
+                const cLon = Math.floor(((lon % 360) + 360) % 360 / this.cellSize);
+                return cLat + ',' + cLon;
+            },
+
+            insert(obj) {
+                const k = this._key(obj.lat, obj.lon);
+                (this.cells[k] ??= []).push(obj);
+            },
+
+            nearby(lat, lon, radiusDeg = 5) {
+                const results = [];
+                const steps = Math.ceil(radiusDeg / this.cellSize);
+                const cLat = Math.floor(lat / this.cellSize);
+                const cLon = Math.floor(((lon % 360) + 360) % 360 / this.cellSize);
+                for (let dy = -steps; dy <= steps; dy++) {
+                    for (let dx = -steps; dx <= steps; dx++) {
+                        const k = (cLat + dy) + ',' + (cLon + dx);
+                        const cell = this.cells[k];
+                        if (cell) results.push(...cell);
+                    }
+                }
+                return results;
+            }
+        };
+
+        // ============================================================
+        // WORLD REGISTRY
+        // ============================================================
+        const world = {
+            all: [],
+            byType: {},
+            byZone: {},
+            byCategory: {},
+            landmarks: [],
+            animated: [],
+
+            register(obj) {
+                this.all.push(obj);
+                (this.byType[obj.type] ??= []).push(obj);
+                (this.byCategory[obj.category] ??= []).push(obj);
+                if (obj.zone) (this.byZone[obj.zone] ??= []).push(obj);
+                if (obj.name) this.landmarks.push(obj);
+                if (obj.update) this.animated.push(obj);
+                spatialGrid.insert(obj);
+            },
+
+            query(opts = {}) {
+                let result = this.all;
+                if (opts.type) result = this.byType[opts.type] || [];
+                else if (opts.category) result = this.byCategory[opts.category] || [];
+                else if (opts.zone) result = this.byZone[opts.zone] || [];
+                return result;
+            },
+
+            count(category) {
+                return (this.byCategory[category] || []).length;
+            }
+        };
+
+        // ============================================================
+        // OBJECT RULES — per-type placement and collision config
+        // ============================================================
+        const ObjectRules = {
+            // Radii in world units — must match actual visual footprint on screen
+            // Structures were already correct (radius matched visual size)
+            // Vegetation radii tuned to match scaled visual size
+            tree:            { radius: 2.5, biomes: [1,2,5],    solid: true  },
+            pine:            { radius: 2.0, biomes: [1,2,4],    solid: true  },
+            palm:            { radius: 1.8, biomes: [5,6],      solid: true  },
+            birch:           { radius: 2.0, biomes: [1,2],      solid: true  },
+            deadtree:        { radius: 1.2, biomes: [3,4],      solid: true  },
+            cactus:          { radius: 1.2, biomes: [3],         solid: true  },
+            bush:            { radius: 0.8, biomes: [1,2,5],    solid: false },
+            flower:          { radius: 0.3, biomes: [1,2,5,6],  solid: false },
+            mushroom:        { radius: 0.4, biomes: [2,5],      solid: false },
+            rock:            { radius: 1.0, biomes: null,        solid: true  },
+            driftwood:       { radius: 1.0, biomes: [6],         solid: false },
+            icespike:        { radius: 0.8, biomes: [4],         solid: true  },
+            house:           { radius: 3.0, biomes: [1,2],       solid: true  },
+            pyramid:         { radius: 5.0, biomes: [3,6],       solid: true  },
+            castle:          { radius: 5.0, biomes: [1,2,4],     solid: true  },
+            temple:          { radius: 4.0, biomes: [1,2,5],     solid: true  },
+            tower:           { radius: 2.5, biomes: null,        solid: true  },
+            lighthouse:      { radius: 2.0, biomes: [6],         solid: true  },
+            windmill:        { radius: 2.5, biomes: [1],         solid: true  },
+            bridge:          { radius: 4.0, biomes: null,        solid: false },
+            statue:          { radius: 3.0, biomes: null,        solid: true  },
+            campfire:        { radius: 0.8, biomes: null,        solid: false },
+            well:            { radius: 1.0, biomes: [1,2],       solid: true  },
+            dock:            { radius: 2.0, biomes: [0,6],       solid: false },
+            ruins:           { radius: 2.5, biomes: null,        solid: true  },
+            market:          { radius: 1.5, biomes: null,        solid: true  },
+            fencerow:        { radius: 0.5, biomes: [1,2],       solid: true  },
+            bench:           { radius: 0.4, biomes: null,        solid: false },
+            lamppost:        { radius: 0.6, biomes: null,        solid: true  },
+            shipwreck:       { radius: 2.0, biomes: [6],         solid: true  },
+            npc:             { radius: 0.4, biomes: null,        solid: false },
+            bird:            { radius: 0.2, biomes: null,        solid: false },
+            butterfly:       { radius: 0.1, biomes: null,        solid: false },
+            sheep:           { radius: 0.4, biomes: [1],         solid: false },
+            crab:            { radius: 0.2, biomes: [6],         solid: false },
+            _default:        { radius: 0.5, biomes: null,        solid: false },
+        };
+
+        function getRules(type) { return ObjectRules[type] || ObjectRules._default; }
+
+        // ============================================================
+        // ENVIRONMENT LAYERS
+        // ============================================================
+        const ENV = {
+            WATER_LEVEL: PR - 0.3,
+
+            query(nx, ny, nz) {
+                const biome = getBiome(nx, ny, nz);
+                const h = groundHeight(nx, ny, nz);
+                const waterDepth = Math.max(0, this.WATER_LEVEL - h);
+
+                // Temperature: warm at equator, cold at poles
+                const baseTemp = 1.0 - Math.abs(ny) * 1.5;
+                const temp = baseTemp + (biome.type === 3 ? 0.3 : 0) + (biome.type === 4 ? -0.4 : 0);
+
+                // Moisture
+                const moisture = biome.type === 5 ? 0.9 : biome.type === 2 ? 0.6
+                               : biome.type === 3 ? 0.1 : biome.type === 4 ? 0.2 : 0.4;
+
+                // Derived flags
+                const isSwamp = moisture > 0.5 && biome.elevation > -0.15 && biome.elevation < -0.02;
+
+                return {
+                    biome, groundR: h, waterDepth,
+                    isUnderwater: waterDepth > 0,
+                    isShallowWater: waterDepth > 0 && waterDepth < 0.5,
+                    isSwamp, temperature: temp, moisture,
+                    // Surface type for MC movement modifiers
+                    surface: waterDepth > 1.0 ? 'deep_water'
+                           : waterDepth > 0   ? 'shallow_water'
+                           : isSwamp           ? 'swamp'
+                           : biome.type === 4  ? 'ice'
+                           : biome.type === 3  ? 'sand'
+                           : 'normal'
+                };
+            }
+        };
+
+        // ============================================================
+        // PLACEMENT VALIDATION
+        // ============================================================
+        function worldToLatLon(pos) {
+            const n = pos.clone().normalize();
+            return {
+                lat: Math.asin(Math.max(-1, Math.min(1, n.y))) * 180 / Math.PI,
+                lon: Math.atan2(n.z, n.x) * 180 / Math.PI
+            };
+        }
+
+        function canPlace(type, lat, lon) {
+            const rules = getRules(type);
+            const phi = (90 - lat) * Math.PI / 180, theta = (lon + 180) * Math.PI / 180;
+            const nx = Math.sin(phi) * Math.cos(theta), ny = Math.cos(phi), nz = Math.sin(phi) * Math.sin(theta);
+            const biome = getBiome(nx, ny, nz);
+
+            // No placing in ocean (unless dock/shipwreck)
+            if (biome.type === 0 && type !== 'dock' && type !== 'shipwreck') return false;
+
+            // Biome check
+            if (rules.biomes && !rules.biomes.includes(biome.type)) return false;
+
+            // Overlap check — radii are in world units (post-WORLD_SCALE visual size)
+            const minDist = rules.radius;
+            const searchDeg = Math.max(3, minDist / (PR * Math.PI / 180));
+            const neighbors = spatialGrid.nearby(lat, lon, searchDeg);
+            const testPos = placeOnPlanet(lat, lon);
+
+            for (const nb of neighbors) {
+                const nbRules = getRules(nb.type);
+                const req = rules.radius + nbRules.radius;
+                if (testPos.distanceTo(nb.pos) < req) return false;
+            }
+
+            return true;
+        }
+
+        class WorldObject {
+            constructor(type, category, mesh, lat, lon) {
+                this.type = type;          // e.g. 'pine_tree', 'house', 'campfire'
+                this.category = category;  // 'vegetation', 'structure', 'furniture', 'npc', 'animal'
+                this.mesh = mesh;          // THREE.Group
+                this.lat = lat;
+                this.lon = lon;
+                this.zone = null;          // set by zone placement
+                this.name = null;          // set for landmarks
+                this.pos = null;           // world position Vector3
+                this.scale = 1;
+            }
+
+            placeOnPlanet(h = 0) {
+                this.pos = placeOnPlanet(this.lat, this.lon, h);
+                orientToSurface(this.mesh, this.pos);
+                return this;
+            }
+
+            setScale(s) {
+                this.scale = s;
+                this.mesh.scale.setScalar(s);
+                return this;
+            }
+
+            addToScene() {
+                scene.add(this.mesh);
+                world.register(this);
+                return this;
+            }
+        }
+
+        class Vegetation extends WorldObject {
+            constructor(type, mesh, lat, lon) {
+                super(type, 'vegetation', mesh, lat, lon);
+            }
+        }
+
+        class Structure extends WorldObject {
+            constructor(type, mesh, lat, lon) {
+                super(type, 'structure', mesh, lat, lon);
+            }
+        }
+
+        class Furniture extends WorldObject {
+            constructor(type, mesh, lat, lon) {
+                super(type, 'furniture', mesh, lat, lon);
+            }
+        }
+
+        class NPC extends WorldObject {
+            constructor(mesh, lat, lon, shirtColor, hatType) {
+                super('npc', 'npc', mesh, lat, lon);
+                this.shirtColor = shirtColor;
+                this.hatType = hatType;
+                this.phase = Math.random() * Math.PI * 2;
+                this.speed = 0.3 + Math.random() * 0.4;
+                this.homeLat = lat;
+                this.homeLon = lon;
+            }
+
+            update(t) {
+                const s = Math.sin(t * this.speed + this.phase);
+                this.mesh.userData.lLeg.rotation.x = s * 0.25;
+                this.mesh.userData.rLeg.rotation.x = -s * 0.25;
+                this.mesh.userData.lArm.rotation.x = -s * 0.2;
+                this.mesh.userData.rArm.rotation.x = s * 0.2;
+                this.mesh.userData.head.position.y = 1.08 + Math.sin(t * 1.5 + this.phase) * 0.005;
+                // Wander
+                const wLat = this.homeLat + Math.sin(t * 0.15 + this.phase) * 1.5;
+                const wLon = this.homeLon + Math.cos(t * 0.12 + this.phase * 1.3) * 1.5;
+                const wp = placeOnPlanet(wLat, wLon);
+                orientToSurface(this.mesh, wp);
+            }
+        }
+
+        class Animal extends WorldObject {
+            constructor(type, mesh, lat, lon, behavior) {
+                super(type, 'animal', mesh, lat, lon);
+                this.behavior = behavior;
+                this.phase = Math.random() * Math.PI * 2;
+                this.speed = 0.2 + Math.random() * 0.3;
+            }
+
+            update(t) {
+                if (this.behavior === 'fly') {
+                    const r = 6, alt = 6 + Math.sin(t * 0.5 + this.phase) * 2;
+                    const cx = this.pos.x + Math.cos(t * this.speed + this.phase) * r;
+                    const cy = this.pos.y + alt;
+                    const cz = this.pos.z + Math.sin(t * this.speed + this.phase) * r;
+                    this.mesh.position.set(cx, cy, cz);
+                    this.mesh.lookAt(cx - Math.sin(t * this.speed + this.phase), cy, cz + Math.cos(t * this.speed + this.phase));
+                    if (this.mesh.userData.lWing) {
+                        this.mesh.userData.lWing.rotation.x = Math.sin(t * 12 + this.phase) * 0.4;
+                        this.mesh.userData.rWing.rotation.x = -Math.sin(t * 12 + this.phase) * 0.4;
+                    }
+                } else if (this.behavior === 'flutter') {
+                    const r = 2, alt = 1.5 + Math.sin(t * 2 + this.phase) * 0.5;
+                    this.mesh.position.set(
+                        this.pos.x + Math.cos(t * this.speed * 2 + this.phase) * r,
+                        this.pos.y + alt,
+                        this.pos.z + Math.sin(t * this.speed * 2 + this.phase) * r
+                    );
+                    if (this.mesh.userData.lWing) {
+                        this.mesh.userData.lWing.rotation.y = Math.sin(t * 15 + this.phase) * 0.6;
+                        this.mesh.userData.rWing.rotation.y = -Math.sin(t * 15 + this.phase) * 0.6;
+                    }
+                } else { // wander
+                    const wx = this.pos.x + Math.sin(t * 0.2 + this.phase) * 2;
+                    const wz = this.pos.z + Math.cos(t * 0.15 + this.phase * 1.3) * 2;
+                    const len = Math.sqrt(wx * wx + this.pos.y * this.pos.y + wz * wz);
+                    const n = new THREE.Vector3(wx / len, this.pos.y / len, wz / len);
+                    const wp = n.multiplyScalar(PR + 1.5);
+                    this.mesh.position.copy(wp);
+                    this.mesh.up.copy(wp.clone().normalize());
+                }
+            }
+        }
+
+        // ============================================================
         // VEGETATION FACTORIES (detailed low-poly)
         // ============================================================
         const LM = (c,o)=>new THREE.MeshLambertMaterial({color:c,...(o||{})});
@@ -989,241 +1303,278 @@
         }
 
         // ============================================================
-        // ZONE PLACEMENT SYSTEM
+        // ZONE PLACEMENT SYSTEM (class-based)
         // ============================================================
-        const landmarks=[], windmills=[], fireLights=[], npcs=[], animals=[];
+        // Legacy arrays for backward compat with animation loop
+        const windmills = [], fireLights = [];
 
-        function place(factory, lat, lon, s=1){
-            const o=factory(), p=placeOnPlanet(lat,lon);
-            orientToSurface(o,p); o.scale.setScalar(s * WORLD_SCALE); scene.add(o);
-            return {obj:o, pos:p};
+        let _currentZone = null;
+
+        // Place a vegetation/structure/furniture object
+        function place(type, category, factory, lat, lon, s = 1) {
+            const cls = category === 'vegetation' ? Vegetation
+                      : category === 'furniture'  ? Furniture
+                      : Structure;
+            const obj = new cls(type, factory(), lat, lon);
+            obj.zone = _currentZone;
+            obj.placeOnPlanet().setScale(s * WORLD_SCALE).addToScene();
+            if (obj.mesh.userData.blades) windmills.push(obj.mesh.userData.blades);
+            if (obj.mesh.userData.fireLight) fireLights.push(obj.mesh.userData.fireLight);
+            return obj;
         }
-        function placeLM(factory, lat, lon, name, s=1){
-            const r=place(factory,lat,lon,s);
-            landmarks.push({...r, name, lat, lon});
-            if(r.obj.userData.blades) windmills.push(r.obj.userData.blades);
-            if(r.obj.userData.fireLight) fireLights.push(r.obj.userData.fireLight);
-            return r;
+
+        // Place a named landmark
+        function placeLM(type, factory, lat, lon, name, s = 1) {
+            const obj = place(type, 'structure', factory, lat, lon, s);
+            obj.name = name;
+            return obj;
         }
-        function scatter(factory, lat, lon, radius, count, sMin=0.6, sMax=1.1){
-            for(let i=0;i<count;i++){
-                const a=Math.random()*Math.PI*2, r=Math.random()*radius;
-                place(factory, lat+Math.cos(a)*r, lon+Math.sin(a)*r, sMin+Math.random()*(sMax-sMin));
+
+        // Scatter N objects randomly within a radius, respecting placement rules
+        function scatter(type, category, factory, lat, lon, radius, count, sMin = 0.6, sMax = 1.1) {
+            for (let i = 0; i < count; i++) {
+                // Try up to 5 random positions, skip if none valid
+                for (let attempt = 0; attempt < 5; attempt++) {
+                    const a = Math.random() * Math.PI * 2, r = Math.random() * radius;
+                    const pLat = lat + Math.cos(a) * r, pLon = lon + Math.sin(a) * r;
+                    if (canPlace(type, pLat, pLon)) {
+                        place(type, category, factory, pLat, pLon, sMin + Math.random() * (sMax - sMin));
+                        break;
+                    }
+                }
             }
         }
-        function placeNPC(shirtColor, hatType, lat, lon){
-            const o=mkNPC(shirtColor,hatType), p=placeOnPlanet(lat,lon);
-            orientToSurface(o,p); scene.add(o);
-            npcs.push({obj:o, pos:p, phase:Math.random()*Math.PI*2, speed:.3+Math.random()*.4, homeLat:lat, homeLon:lon});
+
+        // Place an NPC
+        function placeNPC(shirtColor, hatType, lat, lon) {
+            const npc = new NPC(mkNPC(shirtColor, hatType), lat, lon, shirtColor, hatType);
+            npc.zone = _currentZone;
+            npc.placeOnPlanet().addToScene();
         }
-        function placeAnimal(factory, lat, lon, behavior='wander'){
-            const o=factory(), p=placeOnPlanet(lat,lon,behavior==='fly'?8:0);
-            orientToSurface(o,p); scene.add(o);
-            animals.push({obj:o, pos:p, type:behavior, phase:Math.random()*Math.PI*2, speed:.2+Math.random()*.3});
+
+        // Place an animal
+        function placeAnimal(type, factory, lat, lon, behavior = 'wander') {
+            const anim = new Animal(type, factory(), lat, lon, behavior);
+            anim.zone = _currentZone;
+            anim.placeOnPlanet(behavior === 'fly' ? 8 : 0).addToScene();
         }
 
         // ============================================================
         // ZONE 1: Pyramid Complex (Desert)
+        _currentZone = 1;
         // ============================================================
-        placeLM(()=>mkPyramid(5), 15, -30, 'Great Pyramid');
-        placeLM(()=>mkPyramid(3), 16.5, -28, 'Small Pyramid');
-        place(()=>mkPyramid(1.8), 17, -27);
-        placeLM(()=>mkCampfire(), 14, -32, 'Desert Camp');
-        place(mkMarket, 15.5, -32);
-        place(mkMarket, 14.5, -29);
-        scatter(()=>lpCactus(1.5+Math.random()*1.5), 15, -30, 6, 15);
-        scatter(()=>lpRock(.3+Math.random()*.5,0xa09880), 15, -30, 7, 20);
-        scatter(()=>lpDeadTree(2+Math.random()), 16, -32, 4, 5);
+        placeLM("pyramid", ()=>mkPyramid(5), 15, -30, "Great Pyramid");
+        placeLM("pyramid", ()=>mkPyramid(3), 16.5, -28, "Small Pyramid");
+        place("pyramid", "structure", ()=>mkPyramid(1.8), 17, -27);
+        placeLM("campfire", ()=>mkCampfire(), 14, -32, "Desert Camp");
+        place("market", "furniture", mkMarket, 15.5, -32);
+        place("market", "furniture", mkMarket, 14.5, -29);
+        scatter("cactus", "vegetation", ()=>lpCactus(1.5+Math.random()*1.5), 15, -30, 6, 15);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.5,0xa09880), 15, -30, 7, 20);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 16, -32, 4, 5);
 
         // ============================================================
         // ZONE 2: Mediterranean Village
+        _currentZone = 2;
         // ============================================================
-        placeLM(()=>mkTemple(4), 35, 60, 'Ancient Temple');
-        placeLM(()=>mkHouse(2.5,0xf0f0f0), 36, 58, 'Greek House');
-        place(()=>mkHouse(2,0xeee8dd), 35.5, 57);
-        place(()=>mkHouse(2.2,0xdde0f0), 36.5, 59);
-        place(()=>mkHouse(2,0xf0e8dd), 34.5, 59.5);
-        place(()=>mkHouse(1.8,0xe8e0d0), 35.8, 61);
-        place(mkWell, 35.5, 59);
-        place(mkMarket, 36, 60.5);
-        place(mkMarket, 35, 58.5);
-        place(mkBench, 35.3, 59.5);
-        place(mkBench, 36.2, 58);
-        place(mkLamppost, 35.5, 58.5);
-        place(mkLamppost, 36, 59.5);
-        scatter(()=>lpTree(2+Math.random()*1.5,0x6a9a4a), 35.5, 59, 4, 18);
-        scatter(()=>lpBush(.4+Math.random()*.3), 35.5, 59, 5, 15);
-        scatter(lpFlower, 35.5, 59, 5, 25);
-        scatter(()=>lpRock(.2+Math.random()*.2), 35, 60, 4, 8);
+        placeLM("temple", ()=>mkTemple(4), 35, 60, "Ancient Temple");
+        placeLM("house", ()=>mkHouse(2.5,0xf0f0f0), 36, 58, "Greek House");
+        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 35.5, 57);
+        place("house", "structure", ()=>mkHouse(2.2,0xdde0f0), 36.5, 59);
+        place("house", "structure", ()=>mkHouse(2,0xf0e8dd), 34.5, 59.5);
+        place("house", "structure", ()=>mkHouse(1.8,0xe8e0d0), 35.8, 61);
+        place("well", "furniture", mkWell, 35.5, 59);
+        place("market", "furniture", mkMarket, 36, 60.5);
+        place("market", "furniture", mkMarket, 35, 58.5);
+        place("bench", "furniture", mkBench, 35.3, 59.5);
+        place("bench", "furniture", mkBench, 36.2, 58);
+        place("lamppost", "furniture", mkLamppost, 35.5, 58.5);
+        place("lamppost", "furniture", mkLamppost, 36, 59.5);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5,0x6a9a4a), 35.5, 59, 4, 18);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 35.5, 59, 5, 15);
+        scatter("flower", "vegetation", lpFlower, 35.5, 59, 5, 25);
+        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.2), 35, 60, 4, 8);
         placeNPC(0x6699dd,0, 35.3,59); placeNPC(0xdd6644,2, 36,58.5); placeNPC(0x66aa66,0, 35.8,60);
-        placeAnimal(mkButterfly, 35.5,59,'flutter'); placeAnimal(mkButterfly, 36,60,'flutter');
+        placeAnimal("unknown", mkButterfly, 35.5, 59, "flutter"); placeAnimal("unknown", mkButterfly, 36, 60, "flutter");
 
         // ============================================================
         // ZONE 3: Castle Highlands
+        _currentZone = 3;
         // ============================================================
-        placeLM(()=>mkCastle(4), 50, -120, 'Highland Castle');
-        place(()=>mkHouse(2.5,0xe08860), 49, -121, 'Country Cottage');
-        place(()=>mkHouse(2.8,0x6090cc), 49.5, -119);
-        place(()=>mkHouse(2,0xe8d870), 48.5, -121.5);
-        place(mkWell, 49.5, -120.5);
-        placeLM(()=>mkCampfire(), 48.5, -120, 'Castle Camp');
-        place(()=>mkFenceRow(5,6), 49, -120);
-        place(()=>mkFenceRow(4,5), 49.5, -121);
-        place(mkLamppost, 49.3, -120.5);
-        scatter(()=>lpPine(3+Math.random()*2), 50, -120, 6, 25);
-        scatter(()=>lpBirch(2.5+Math.random()*1.5), 49, -120, 4, 10);
-        scatter(()=>lpBush(.4+Math.random()*.3), 49.5, -120, 5, 18);
-        scatter(lpFlower, 49, -120, 5, 20);
-        scatter(()=>lpRock(.3+Math.random()*.4), 50, -120, 5, 12);
+        placeLM("castle", ()=>mkCastle(4), 50, -120, "Highland Castle");
+        place("house", "structure", ()=>mkHouse(2.5,0xe08860), 49, -121, 'Country Cottage');
+        place("house", "structure", ()=>mkHouse(2.8,0x6090cc), 49.5, -119);
+        place("house", "structure", ()=>mkHouse(2,0xe8d870), 48.5, -121.5);
+        place("well", "furniture", mkWell, 49.5, -120.5);
+        placeLM("campfire", ()=>mkCampfire(), 48.5, -120, "Castle Camp");
+        place("fencerow", "furniture", ()=>mkFenceRow(5,6), 49, -120);
+        place("fencerow", "furniture", ()=>mkFenceRow(4,5), 49.5, -121);
+        place("lamppost", "furniture", mkLamppost, 49.3, -120.5);
+        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*2), 50, -120, 6, 25);
+        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 49, -120, 4, 10);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 49.5, -120, 5, 18);
+        scatter("flower", "vegetation", lpFlower, 49, -120, 5, 20);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 50, -120, 5, 12);
         placeNPC(0x888888,3, 50.2,-119.5); placeNPC(0x888888,3, 50.3,-120.5);
-        placeAnimal(()=>mkSheep(), 48.5,-119,'wander'); placeAnimal(()=>mkSheep(), 49,-119.5,'wander');
-        placeAnimal(()=>mkSheep(), 48.8,-120.5,'wander');
-        placeAnimal(()=>mkBird(), 50,-120,'fly'); placeAnimal(()=>mkBird(0x886644), 50.5,-119,'fly');
+        placeAnimal("sheep", ()=>mkSheep(), 48.5, -119, "wander"); placeAnimal("sheep", ()=>mkSheep(), 49, -119.5, "wander");
+        placeAnimal("sheep", ()=>mkSheep(), 48.8, -120.5, "wander");
+        placeAnimal("bird", ()=>mkBird(), 50, -120, "fly"); placeAnimal("bird", ()=>mkBird(0x886644), 50.5, -119, "fly");
 
         // ============================================================
         // ZONE 4: Dutch Countryside
+        _currentZone = 4;
         // ============================================================
-        placeLM(()=>mkWindmill(6), 48, 5, 'Dutch Windmill');
-        place(()=>mkHouse(2.2,0xe0a070), 47.5, 4);
-        place(()=>mkHouse(2,0xdda880), 47, 6);
-        place(()=>mkHouse(2.5,0xc8e090), 48.5, 4.5);
-        place(()=>mkFenceRow(6,7), 47.5, 5);
-        place(()=>mkFenceRow(5,6), 48, 3.5);
-        place(mkMarket, 47.5, 5.5);
-        place(mkMarket, 48, 6);
-        scatter(lpFlower, 48, 5, 5, 45); // Dense flower field!
-        scatter(()=>lpTree(2+Math.random()*1.5), 48, 5, 5, 12);
-        scatter(()=>lpBush(.3+Math.random()*.3), 47.5, 5, 4, 14);
+        placeLM("windmill", ()=>mkWindmill(6), 48, 5, "Dutch Windmill");
+        place("house", "structure", ()=>mkHouse(2.2,0xe0a070), 47.5, 4);
+        place("house", "structure", ()=>mkHouse(2,0xdda880), 47, 6);
+        place("house", "structure", ()=>mkHouse(2.5,0xc8e090), 48.5, 4.5);
+        place("fencerow", "furniture", ()=>mkFenceRow(6,7), 47.5, 5);
+        place("fencerow", "furniture", ()=>mkFenceRow(5,6), 48, 3.5);
+        place("market", "furniture", mkMarket, 47.5, 5.5);
+        place("market", "furniture", mkMarket, 48, 6);
+        scatter("flower", "vegetation", lpFlower, 48, 5, 5, 45); // Dense flower field!
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 48, 5, 5, 12);
+        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 47.5, 5, 4, 14);
         placeNPC(0xddaa44,2, 47.5,5.5); placeNPC(0x88aa66,2, 48,4);
-        placeAnimal(()=>mkSheep(), 47.5,4.5,'wander'); placeAnimal(()=>mkSheep(), 48,6.5,'wander');
-        placeAnimal(()=>mkSheep(), 47,5,'wander');
-        placeAnimal(mkButterfly, 48,5,'flutter'); placeAnimal(mkButterfly, 47.5,5.5,'flutter');
-        placeAnimal(mkButterfly, 48.5,4,'flutter');
+        placeAnimal("sheep", ()=>mkSheep(), 47.5, 4.5, "wander"); placeAnimal("sheep", ()=>mkSheep(), 48, 6.5, "wander");
+        placeAnimal("sheep", ()=>mkSheep(), 47, 5, "wander");
+        placeAnimal("unknown", mkButterfly, 48, 5, "flutter"); placeAnimal("unknown", mkButterfly, 47.5, 5.5, "flutter");
+        placeAnimal("unknown", mkButterfly, 48.5, 4, "flutter");
 
         // ============================================================
         // ZONE 5: Lighthouse Coast
+        _currentZone = 5;
         // ============================================================
-        placeLM(()=>mkLighthouse(8), 25, 150, 'Coastal Lighthouse');
-        place(()=>mkDock(5), 24.5, 151);
-        place(()=>mkHouse(2,0xeee8dd), 25.5, 149);
-        placeLM(()=>mkCampfire(), 24, 150.5, 'Beach Camp');
-        scatter(()=>lpPalm(3+Math.random()*2), 25, 150, 4, 8);
-        scatter(()=>lpRock(.4+Math.random()*.5), 25, 150, 4, 10);
-        scatter(()=>lpDriftwood(), 24.5, 150.5, 3, 5);
-        scatter(lpFlower, 25.5, 149, 2, 8);
+        placeLM("lighthouse", ()=>mkLighthouse(8), 25, 150, "Coastal Lighthouse");
+        place("dock", "structure", ()=>mkDock(5), 24.5, 151);
+        place("house", "structure", ()=>mkHouse(2,0xeee8dd), 25.5, 149);
+        placeLM("campfire", ()=>mkCampfire(), 24, 150.5, "Beach Camp");
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 25, 150, 4, 8);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.5), 25, 150, 4, 10);
+        scatter("driftwood", "vegetation", ()=>lpDriftwood(), 24.5, 150.5, 3, 5);
+        scatter("flower", "vegetation", lpFlower, 25.5, 149, 2, 8);
         placeNPC(0xeee8dd,0, 25.2,149.5);
-        placeAnimal(()=>mkCrab(), 24.5,150.5,'wander'); placeAnimal(()=>mkCrab(), 24,151,'wander');
-        placeAnimal(()=>mkBird(0xeeeeee), 25,150,'fly');
+        placeAnimal("crab", ()=>mkCrab(), 24.5, 150.5, "wander"); placeAnimal("crab", ()=>mkCrab(), 24, 151, "wander");
+        placeAnimal("bird", ()=>mkBird(0xeeeeee), 25, 150, "fly");
 
         // ============================================================
         // ZONE 6: Golden Bridge
+        _currentZone = 6;
         // ============================================================
-        placeLM(()=>mkBridge(10), 20, 120, 'Golden Bridge');
-        place(()=>mkHouse(2.2,0xdda080), 20.5, 118.5);
-        place(()=>mkHouse(2,0xaaccdd), 19.5, 121.5);
-        scatter(()=>lpPalm(4+Math.random()*2), 20, 120, 4, 10);
-        scatter(()=>lpBush(.4+Math.random()*.3), 20, 120, 4, 8);
-        scatter(()=>lpRock(.3+Math.random()*.3), 20, 120, 3, 6);
+        placeLM("bridge", ()=>mkBridge(10), 20, 120, "Golden Bridge");
+        place("house", "structure", ()=>mkHouse(2.2,0xdda080), 20.5, 118.5);
+        place("house", "structure", ()=>mkHouse(2,0xaaccdd), 19.5, 121.5);
+        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*2), 20, 120, 4, 10);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3), 20, 120, 4, 8);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.3), 20, 120, 3, 6);
 
         // ============================================================
         // ZONE 7: Statue of Freedom
+        _currentZone = 7;
         // ============================================================
-        placeLM(()=>mkStatue(6), 30, -70, 'Statue of Freedom');
-        place(()=>mkDock(4), 29.5, -69);
-        place(mkBench, 30.5, -70.5); place(mkBench, 30.2, -69.5);
-        place(mkBench, 29.8, -70.3); place(mkBench, 30.5, -69.8);
-        place(mkLamppost, 30.3, -70.3); place(mkLamppost, 29.7, -69.7);
-        scatter(()=>lpBush(.35+Math.random()*.2), 30, -70, 3, 12);
-        scatter(lpFlower, 30, -70, 3, 20);
-        scatter(()=>lpTree(2+Math.random()), 30, -70, 3, 6);
+        placeLM("statue", ()=>mkStatue(6), 30, -70, "Statue of Freedom");
+        place("dock", "structure", ()=>mkDock(4), 29.5, -69);
+        place("bench", "furniture", mkBench, 30.5, -70.5); place("bench", "furniture", mkBench, 30.2, -69.5);
+        place("bench", "furniture", mkBench, 29.8, -70.3); place("bench", "furniture", mkBench, 30.5, -69.8);
+        place("lamppost", "furniture", mkLamppost, 30.3, -70.3); place("lamppost", "furniture", mkLamppost, 29.7, -69.7);
+        scatter("bush", "vegetation", ()=>lpBush(.35+Math.random()*.2), 30, -70, 3, 12);
+        scatter("flower", "vegetation", lpFlower, 30, -70, 3, 20);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()), 30, -70, 3, 6);
 
         // ============================================================
         // ZONE 8: Tropical Jungle
+        _currentZone = 8;
         // ============================================================
-        place(()=>mkRuins(3), 10, 80);
-        placeLM(()=>mkCampfire(), 11, 82, 'Jungle Camp');
-        scatter(()=>lpPalm(4+Math.random()*3), 10, 80, 8, 45);
-        scatter(()=>lpTree(3+Math.random()*2,0x2a7a35), 10, 80, 8, 25);
-        scatter(()=>lpBush(.5+Math.random()*.4,0x3a8a3a), 10, 80, 8, 30);
-        scatter(lpFlower, 10, 80, 7, 20);
-        scatter(()=>lpMushroom(.12+Math.random()*.08), 10, 80, 6, 15);
-        scatter(()=>lpRock(.3+Math.random()*.4), 10, 80, 7, 10);
+        place("ruins", "structure", ()=>mkRuins(3), 10, 80);
+        placeLM("campfire", ()=>mkCampfire(), 11, 82, "Jungle Camp");
+        scatter("palm", "vegetation", ()=>lpPalm(4+Math.random()*3), 10, 80, 8, 45);
+        scatter("tree", "vegetation", ()=>lpTree(3+Math.random()*2,0x2a7a35), 10, 80, 8, 25);
+        scatter("bush", "vegetation", ()=>lpBush(.5+Math.random()*.4,0x3a8a3a), 10, 80, 8, 30);
+        scatter("flower", "vegetation", lpFlower, 10, 80, 7, 20);
+        scatter("mushroom", "vegetation", ()=>lpMushroom(.12+Math.random()*.08), 10, 80, 6, 15);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.4), 10, 80, 7, 10);
         placeNPC(0xaa7744,3, 11,82);
-        placeAnimal(mkButterfly,10,80,'flutter'); placeAnimal(mkButterfly,10.5,81,'flutter');
-        placeAnimal(mkButterfly,9.5,79,'flutter');
-        placeAnimal(()=>mkBird(0x33aa33),10,80,'fly'); placeAnimal(()=>mkBird(0xdd4444),10.5,81,'fly');
+        placeAnimal("unknown", mkButterfly, 10, 80, "flutter"); placeAnimal("unknown", mkButterfly, 10.5, 81, "flutter");
+        placeAnimal("unknown", mkButterfly, 9.5, 79, "flutter");
+        placeAnimal("bird", ()=>mkBird(0x33aa33), 10, 80, "fly"); placeAnimal("bird", ()=>mkBird(0xdd4444), 10.5, 81, "fly");
 
         // ============================================================
         // ZONE 9: Snowy Peak
+        _currentZone = 9;
         // ============================================================
-        placeLM(()=>mkCampfire(), 65, 30, 'Mountain Camp');
-        place(()=>mkRuins(2), 66, 28);
-        scatter(()=>lpPine(2.5+Math.random()*2,true), 65, 30, 8, 25);
-        scatter(()=>lpRock(.4+Math.random()*.6,0x8a8a98), 65, 30, 7, 15);
-        scatter(()=>lpIceSpike(1+Math.random()), 66, 29, 5, 10);
-        scatter(()=>lpDeadTree(2+Math.random()), 64, 32, 5, 8);
+        placeLM("campfire", ()=>mkCampfire(), 65, 30, "Mountain Camp");
+        place("ruins", "structure", ()=>mkRuins(2), 66, 28);
+        scatter("pine", "vegetation", ()=>lpPine(2.5+Math.random()*2,true), 65, 30, 8, 25);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), 65, 30, 7, 15);
+        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()), 66, 29, 5, 10);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), 64, 32, 5, 8);
         placeNPC(0xdd6644,3, 65.2,30.5);
-        placeAnimal(()=>mkBird(0xaabbcc),65,30,'fly');
+        placeAnimal("bird", ()=>mkBird(0xaabbcc), 65, 30, "fly");
 
         // ============================================================
         // ZONE 10: Grand Tower Plaza
+        _currentZone = 10;
         // ============================================================
-        placeLM(()=>mkTower(10), 42, 20, 'Grand Tower');
-        place(()=>mkRuins(2), 41.5, 21);
-        place(mkMarket, 42.5, 19.5);
-        place(mkBench, 42.3, 20.3); place(mkBench, 41.8, 19.8);
-        place(mkLamppost, 42.2, 19.5); place(mkLamppost, 41.8, 20.5);
-        scatter(()=>lpTree(2+Math.random()*1.5), 42, 20, 4, 12);
-        scatter(()=>lpBush(.3+Math.random()*.3), 42, 20, 4, 10);
-        scatter(lpFlower, 42, 20, 4, 15);
+        placeLM("tower", ()=>mkTower(10), 42, 20, "Grand Tower");
+        place("ruins", "structure", ()=>mkRuins(2), 41.5, 21);
+        place("market", "furniture", mkMarket, 42.5, 19.5);
+        place("bench", "furniture", mkBench, 42.3, 20.3); place("bench", "furniture", mkBench, 41.8, 19.8);
+        place("lamppost", "furniture", mkLamppost, 42.2, 19.5); place("lamppost", "furniture", mkLamppost, 41.8, 20.5);
+        scatter("tree", "vegetation", ()=>lpTree(2+Math.random()*1.5), 42, 20, 4, 12);
+        scatter("bush", "vegetation", ()=>lpBush(.3+Math.random()*.3), 42, 20, 4, 10);
+        scatter("flower", "vegetation", lpFlower, 42, 20, 4, 15);
         placeNPC(0x6699dd,0, 42.3,20); placeNPC(0xddaa44,1, 41.8,19.8);
 
         // ============================================================
         // ZONE 11: Beach Resort
+        _currentZone = 11;
         // ============================================================
-        place(()=>mkHouse(2,0xff9966), 5, -100);
-        place(()=>mkHouse(1.8,0x66ccaa), 5.5, -101);
-        place(()=>mkDock(4), 4.5, -99.5);
-        placeLM(()=>mkCampfire(), 4, -100.5, 'Beach Resort');
-        place(mkShipwreck, 3.5, -98);
-        scatter(()=>lpPalm(3+Math.random()*2), 5, -100, 5, 10);
-        scatter(()=>lpDriftwood(), 4, -100, 4, 6);
-        scatter(()=>lpRock(.2+Math.random()*.3), 5, -100, 4, 8);
-        placeAnimal(()=>mkCrab(),4,-100,'wander'); placeAnimal(()=>mkCrab(),4.5,-99,'wander');
-        placeAnimal(()=>mkCrab(),3.5,-100.5,'wander');
+        place("house", "structure", ()=>mkHouse(2,0xff9966), 5, -100);
+        place("house", "structure", ()=>mkHouse(1.8,0x66ccaa), 5.5, -101);
+        place("dock", "structure", ()=>mkDock(4), 4.5, -99.5);
+        placeLM("campfire", ()=>mkCampfire(), 4, -100.5, "Beach Resort");
+        place("shipwreck", "structure", mkShipwreck, 3.5, -98);
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 5, -100, 5, 10);
+        scatter("driftwood", "vegetation", ()=>lpDriftwood(), 4, -100, 4, 6);
+        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.3), 5, -100, 4, 8);
+        placeAnimal("crab", ()=>mkCrab(), 4, -100, "wander"); placeAnimal("crab", ()=>mkCrab(), 4.5, -99, "wander");
+        placeAnimal("crab", ()=>mkCrab(), 3.5, -100.5, "wander");
 
         // ============================================================
         // ZONE 12: Deep Forest
+        _currentZone = 12;
         // ============================================================
-        scatter(()=>lpPine(3+Math.random()*3), 55, 60, 7, 35);
-        scatter(()=>lpBirch(2.5+Math.random()*1.5), 55, 60, 6, 15);
-        scatter(()=>lpBush(.4+Math.random()*.4), 55, 60, 7, 22);
-        scatter(()=>lpMushroom(.1+Math.random()*.1), 55, 60, 6, 15);
-        scatter(lpFlower, 55, 60, 6, 12);
-        scatter(()=>lpRock(.3+Math.random()*.3), 55, 60, 6, 10);
-        place(mkWell, 55, 61);
-        place(()=>mkRuins(2), 54, 59);
-        placeAnimal(()=>mkBird(0x448866),55,60,'fly');
-        placeAnimal(mkButterfly,55.5,60.5,'flutter');
+        scatter("pine", "vegetation", ()=>lpPine(3+Math.random()*3), 55, 60, 7, 35);
+        scatter("birch", "vegetation", ()=>lpBirch(2.5+Math.random()*1.5), 55, 60, 6, 15);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.4), 55, 60, 7, 22);
+        scatter("mushroom", "vegetation", ()=>lpMushroom(.1+Math.random()*.1), 55, 60, 6, 15);
+        scatter("flower", "vegetation", lpFlower, 55, 60, 6, 12);
+        scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.3), 55, 60, 6, 10);
+        place("well", "furniture", mkWell, 55, 61);
+        place("ruins", "structure", ()=>mkRuins(2), 54, 59);
+        placeAnimal("bird", ()=>mkBird(0x448866), 55, 60, "fly");
+        placeAnimal("unknown", mkButterfly, 55.5, 60.5, "flutter");
 
         // ============================================================
         // ZONE 13: Desert Oasis
+        _currentZone = 13;
         // ============================================================
-        scatter(()=>lpPalm(3+Math.random()*2), 12, -60, 3, 8);
-        scatter(()=>lpBush(.4+Math.random()*.3,0x5cb85c), 12, -60, 3, 12);
-        scatter(lpFlower, 12, -60, 3, 15);
-        scatter(()=>lpRock(.2+Math.random()*.3), 12, -60, 3, 5);
-        placeLM(()=>mkCampfire(), 12, -60, 'Oasis Camp');
-        place(mkMarket, 12.5, -59.5);
+        scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 12, -60, 3, 8);
+        scatter("bush", "vegetation", ()=>lpBush(.4+Math.random()*.3,0x5cb85c), 12, -60, 3, 12);
+        scatter("flower", "vegetation", lpFlower, 12, -60, 3, 15);
+        scatter("rock", "vegetation", ()=>lpRock(.2+Math.random()*.3), 12, -60, 3, 5);
+        placeLM("campfire", ()=>mkCampfire(), 12, -60, "Oasis Camp");
+        place("market", "furniture", mkMarket, 12.5, -59.5);
         placeNPC(0xddaa44,3, 12.3,-59.8);
 
         // ============================================================
         // ZONE 14: Southern Tundra
+        _currentZone = 14;
         // ============================================================
-        scatter(()=>lpPine(2+Math.random()*2,true), -55, 0, 8, 18);
-        scatter(()=>lpIceSpike(1+Math.random()*1.5), -55, 0, 7, 12);
-        scatter(()=>lpRock(.4+Math.random()*.6,0x8a8a98), -55, 0, 8, 15);
-        scatter(()=>lpDeadTree(2+Math.random()), -55, 0, 6, 8);
+        scatter("pine", "vegetation", ()=>lpPine(2+Math.random()*2,true), -55, 0, 8, 18);
+        scatter("icespike", "vegetation", ()=>lpIceSpike(1+Math.random()*1.5), -55, 0, 7, 12);
+        scatter("rock", "vegetation", ()=>lpRock(.4+Math.random()*.6,0x8a8a98), -55, 0, 8, 15);
+        scatter("deadtree", "vegetation", ()=>lpDeadTree(2+Math.random()), -55, 0, 6, 8);
 
         // ============================================================
         // SPARSE GLOBAL FILL (between zones)
@@ -1353,6 +1704,7 @@
             depthWrite: false
         });
         const charShadow = new THREE.Mesh(shadowGeo, shadowMat);
+        charShadow.visible = false; // only visible in debug mode (F3)
         scene.add(charShadow);
 
         // ============================================================
@@ -1488,7 +1840,9 @@
             return { pos, up: move.up, fw: move.fw, rt: move.rt.clone().negate() };
         }
 
-        // Move the player along the planet surface.
+        // Move the player along the planet surface with collision.
+        const MC_RADIUS = 0.4;
+
         function moveOnSurface(fwdAmount, turnAmount) {
             player.heading += turnAmount;
             if (Math.abs(fwdAmount) < 0.00001) return;
@@ -1496,10 +1850,42 @@
             const { fw } = getFrame();
             const moveVec = fw.clone().multiplyScalar(fwdAmount);
             const newWorldPos = player.groundPos.clone().add(moveVec);
-            // Normalize to get direction, then snap to ground height at that direction
             const dir = newWorldPos.normalize();
             const r = groundHeight(dir.x, dir.y, dir.z);
-            player.groundPos.set(dir.x * r, dir.y * r, dir.z * r);
+            const candidatePos = new THREE.Vector3(dir.x * r, dir.y * r, dir.z * r);
+
+            // Simple brute force collision against all solid objects
+            player._collisions = 0;
+            for (const obj of world.all) {
+                if (!obj.pos) continue;
+                const rules = getRules(obj.type);
+                if (!rules.solid) continue;
+
+                const minDist = rules.radius + MC_RADIUS;
+                const dist = candidatePos.distanceTo(obj.pos);
+
+                if (dist < minDist) {
+                    player._collisions++;
+                    // Push character out of the object
+                    const push = candidatePos.clone().sub(obj.pos);
+                    const up = candidatePos.clone().normalize();
+                    // Project onto tangent plane
+                    push.sub(up.clone().multiplyScalar(push.dot(up)));
+                    if (push.lengthSq() > 0.0001) {
+                        push.normalize();
+                        candidatePos.copy(obj.pos).add(push.multiplyScalar(minDist + 0.01));
+                        // Re-snap to ground
+                        const d2 = candidatePos.normalize();
+                        const r2 = groundHeight(d2.x, d2.y, d2.z);
+                        candidatePos.set(d2.x * r2, d2.y * r2, d2.z * r2);
+                    } else {
+                        // Directly on top — don't move
+                        return;
+                    }
+                }
+            }
+
+            player.groundPos.copy(candidatePos);
         }
 
         // ============================================================
@@ -1585,7 +1971,7 @@
                 const c=getBiomeColor(getBiome(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)));
                 mmX.fillStyle=`rgb(${c.r*255|0},${c.g*255|0},${c.b*255|0})`; mmX.fillRect(px,py,3,3);
             }
-            for(const lm of landmarks){
+            for(const lm of world.landmarks){
                 const dl=lm.lat-pLat, dn=lm.lon-pLon;
                 if(Math.abs(dl)>40||Math.abs(dn)>40)continue;
                 mmX.beginPath(); mmX.arc(60+(dn/40)*56, 60-(dl/40)*56, 2.5, 0, Math.PI*2);
@@ -1628,7 +2014,10 @@
         // ============================================================
         function nearest(){
             let n=null,d=Infinity;
-            for(const l of landmarks){const dd=character.position.distanceTo(l.pos);if(dd<d){d=dd;n=l;}}
+            for(const l of world.landmarks){
+                const dd=character.position.distanceTo(l.pos);
+                if(dd<d){d=dd;n=l;}
+            }
             return {lm:n,dist:d};
         }
         function updateHUD(){
@@ -1742,6 +2131,7 @@
                 e.preventDefault();
                 _debugVisible = !_debugVisible;
                 _debugEl.classList.toggle('visible', _debugVisible);
+                charShadow.visible = _debugVisible;
             }
         });
 
@@ -1839,6 +2229,25 @@
                 `--- CAMERA ---`,
                 `Cam dist:     ${camDist.toFixed(2)}`,
                 `Cam mode:     ${camMode}`,
+                ``,
+                `--- ENVIRONMENT ---`,
+                `Surface:      ${player.surface || 'normal'}`,
+                `Water depth:  ${player.env ? player.env.waterDepth.toFixed(2) : '-'}`,
+                `Temperature:  ${player.env ? player.env.temperature.toFixed(2) : '-'}`,
+                `Moisture:     ${player.env ? player.env.moisture.toFixed(2) : '-'}`,
+                `Speed mul:    ${(player.speedMul || 1).toFixed(2)}`,
+                ``,
+                `--- WORLD OBJECTS ---`,
+                `Total:        ${world.all.length}`,
+                `Vegetation:   ${world.count('vegetation')}`,
+                `Structures:   ${world.count('structure')}`,
+                `Furniture:    ${world.count('furniture')}`,
+                `NPCs:         ${world.count('npc')}`,
+                `Animals:      ${world.count('animal')}`,
+                `Landmarks:    ${world.landmarks.length}`,
+                `Nearby:       ${player._nearbyCount || 0}`,
+                `Nearby solid: ${(() => { const ll = worldToLatLon(character.position); return spatialGrid.nearby(ll.lat, ll.lon, 5).filter(o => getRules(o.type).solid).length; })()}`,
+                `Collisions:   ${player._collisions || 0}`,
             ];
 
             _debugEl.textContent = lines.join('\n');
@@ -1855,9 +2264,28 @@
             lt=now;
 
             // --- SURFACE-BASED MOVEMENT ---
+            // Query environment at MC position for movement modifiers
+            const _pDir = player.groundPos.clone().normalize();
+            const _env = ENV.query(_pDir.x, _pDir.y, _pDir.z);
+            player.surface = _env.surface;
+            player.env = _env;
+            player.speedMul = 1.0; // will be set below
+
+            // Movement speed modifiers based on surface type
+            let surfaceSpeedMul = 1.0;
+            let surfaceDragMul = 1.0;
+            // Terrain effects at 50% intensity (lerp toward 1.0)
+            if (_env.surface === 'shallow_water') { surfaceSpeedMul = 0.75; surfaceDragMul = 0.975; }
+            else if (_env.surface === 'deep_water') { surfaceSpeedMul = 0.575; surfaceDragMul = 0.99; }
+            else if (_env.surface === 'swamp')      { surfaceSpeedMul = 0.7; surfaceDragMul = 0.96; }
+            else if (_env.surface === 'ice')        { surfaceSpeedMul = 0.95; surfaceDragMul = 0.99; }
+            else if (_env.surface === 'sand')       { surfaceSpeedMul = 0.9; surfaceDragMul = 0.96; }
+
+            player.speedMul = surfaceSpeedMul;
+
             const running = keys.ShiftLeft || keys.ShiftRight;
-            const accel = running ? RUN_ACCEL : WALK_ACCEL;
-            const maxSpd = running ? MAX_RUN : MAX_WALK;
+            const accel = (running ? RUN_ACCEL : WALK_ACCEL) * surfaceSpeedMul;
+            const maxSpd = (running ? MAX_RUN : MAX_WALK) * surfaceSpeedMul;
             const grounded = player.grounded;
             const controlFactor = grounded ? 1.0 : AIR_CONTROL;
 
@@ -1880,7 +2308,7 @@
                 const targetV = fwdInput * maxSpd;
                 player.vFwd += (targetV - player.vFwd) * accel * controlFactor * dt * 60;
             }
-            player.vFwd *= grounded ? GROUND_DRAG : AIR_DRAG;
+            player.vFwd *= grounded ? (GROUND_DRAG * surfaceDragMul) : AIR_DRAG;
             if (Math.abs(player.vFwd) < 0.0001) player.vFwd = 0;
 
             // Apply movement on the actual mesh surface
@@ -1918,56 +2346,8 @@
             for(const fl of fireLights){
                 fl.intensity=1.2+Math.sin(t*8+Math.random()*2)*.5+Math.random()*.2;
             }
-            // NPCs
-            for(const npc of npcs){
-                const s=Math.sin(t*npc.speed+npc.phase);
-                npc.obj.userData.lLeg.rotation.x=s*.25;
-                npc.obj.userData.rLeg.rotation.x=-s*.25;
-                npc.obj.userData.lArm.rotation.x=-s*.2;
-                npc.obj.userData.rArm.rotation.x=s*.2;
-                npc.obj.userData.head.position.y=1.08+Math.sin(t*1.5+npc.phase)*.005;
-                // Slow wander
-                const wLat=npc.homeLat+Math.sin(t*.15+npc.phase)*1.5;
-                const wLon=npc.homeLon+Math.cos(t*.12+npc.phase*1.3)*1.5;
-                const wp=placeOnPlanet(wLat,wLon);
-                orientToSurface(npc.obj,wp);
-            }
-            // Animals
-            for(const a of animals){
-                if(a.type==='fly'){
-                    // Circle above home pos
-                    const r=6, alt=6+Math.sin(t*.5+a.phase)*2;
-                    const cx=a.pos.x+Math.cos(t*a.speed+a.phase)*r;
-                    const cy=a.pos.y+alt;
-                    const cz=a.pos.z+Math.sin(t*a.speed+a.phase)*r;
-                    a.obj.position.set(cx,cy,cz);
-                    a.obj.lookAt(cx-Math.sin(t*a.speed+a.phase),cy,cz+Math.cos(t*a.speed+a.phase));
-                    // Wing flap
-                    if(a.obj.userData.lWing){
-                        a.obj.userData.lWing.rotation.x=Math.sin(t*12+a.phase)*.4;
-                        a.obj.userData.rWing.rotation.x=-Math.sin(t*12+a.phase)*.4;
-                    }
-                } else if(a.type==='flutter'){
-                    const r=2, alt=1.5+Math.sin(t*2+a.phase)*.5;
-                    const bx=a.pos.x+Math.cos(t*a.speed*2+a.phase)*r;
-                    const by=a.pos.y+alt;
-                    const bz=a.pos.z+Math.sin(t*a.speed*2+a.phase)*r;
-                    a.obj.position.set(bx,by,bz);
-                    if(a.obj.userData.lWing){
-                        a.obj.userData.lWing.rotation.y=Math.sin(t*15+a.phase)*.6;
-                        a.obj.userData.rWing.rotation.y=-Math.sin(t*15+a.phase)*.6;
-                    }
-                } else { // wander (sheep, crabs)
-                    const wx=a.pos.x+Math.sin(t*.2+a.phase)*2;
-                    const wz=a.pos.z+Math.cos(t*.15+a.phase*1.3)*2;
-                    const len=Math.sqrt(wx*wx+a.pos.y*a.pos.y+wz*wz);
-                    const n=new THREE.Vector3(wx/len,a.pos.y/len,wz/len);
-                    const wp=n.multiplyScalar(PR+1.5);
-                    a.obj.position.copy(wp);
-                    const up=wp.clone().normalize();
-                    a.obj.up.copy(up);
-                }
-            }
+            // Animate all registered animated objects (NPCs, animals)
+            for (const obj of world.animated) obj.update(t);
 
             hudT+=dt; if(hudT>0.2){updateHUD();hudT=0;}
             mmT+=dt; if(mmT>0.5){drawMinimap();mmT=0;}
@@ -2104,7 +2484,7 @@
         }
 
         // Expose for external testing
-        window._game = { player, character, camera, scene, renderer, updateChar, updateCam,
+        window._game = { player, character, camera, scene, renderer, world, updateChar, updateCam,
             moveOnSurface, getFrame, groundHeight, getBiome, MAX_WALK, WALK_ACCEL, GROUND_DRAG,
             WORLD_SCALE, PR, CH, camMode: () => camMode, setCamMode: (m) => { camMode = m; } };
 
