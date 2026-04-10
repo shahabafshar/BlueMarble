@@ -341,14 +341,23 @@
             const r = groundHeight(nx, ny, nz) + h;
             return new THREE.Vector3(nx*r, ny*r, nz*r);
         }
-        function orientToSurface(obj, pos){
+        function orientToSurface(obj, pos, yawDeg = 0){
             const up=pos.clone().normalize();
             obj.position.copy(pos); obj.up.copy(up);
             const fw=new THREE.Vector3(1,0,0);
             if(Math.abs(up.dot(fw))>0.99) fw.set(0,0,1);
             const rt=new THREE.Vector3().crossVectors(up,fw).normalize();
             fw.crossVectors(rt,up).normalize();
-            obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(rt,up,fw));
+            // Apply yaw rotation around the surface normal
+            if (yawDeg) {
+                const rad = yawDeg * Math.PI / 180;
+                const cos = Math.cos(rad), sin = Math.sin(rad);
+                const newFw = fw.clone().multiplyScalar(cos).add(rt.clone().multiplyScalar(sin));
+                const newRt = rt.clone().multiplyScalar(cos).sub(fw.clone().multiplyScalar(sin));
+                obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(newRt, up, newFw));
+            } else {
+                obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(rt,up,fw));
+            }
         }
 
         // ============================================================
@@ -427,39 +436,38 @@
         // OBJECT RULES — per-type placement and collision config
         // ============================================================
         const ObjectRules = {
-            // radius: collision size, solid: blocks MC, sink: how deep to embed in ground
-            // sink is in local units (before WORLD_SCALE), applied as negative height offset
-            // Larger footprint objects need more sink to avoid floating edges on curved terrain
-            tree:            { radius: 2.5, biomes: [1,2,5],    solid: true,  sink: 0.3  },
-            pine:            { radius: 2.0, biomes: [1,2,4],    solid: true,  sink: 0.2  },
-            palm:            { radius: 1.8, biomes: [5,6],      solid: true,  sink: 0.2  },
-            birch:           { radius: 2.0, biomes: [1,2],      solid: true,  sink: 0.2  },
-            deadtree:        { radius: 1.2, biomes: [3,4],      solid: true,  sink: 0.2  },
-            cactus:          { radius: 1.2, biomes: [3],         solid: true,  sink: 0.15 },
-            bush:            { radius: 0.8, biomes: [1,2,5],    solid: false, sink: 0.1  },
-            flower:          { radius: 0.3, biomes: [1,2,5,6],  solid: false, sink: 0.05 },
-            mushroom:        { radius: 0.4, biomes: [2,5],      solid: false, sink: 0.05 },
-            rock:            { radius: 1.0, biomes: null,        solid: true,  sink: 0.3  },
-            driftwood:       { radius: 1.0, biomes: [6],         solid: false, sink: 0.1  },
-            icespike:        { radius: 0.8, biomes: [4],         solid: true,  sink: 0.2  },
-            house:           { radius: 3.0, biomes: [1,2],       solid: true,  sink: 0.5  },
-            pyramid:         { radius: 5.0, biomes: [3,6],       solid: true,  sink: 0.8  },
-            castle:          { radius: 5.0, biomes: [1,2,4],     solid: true,  sink: 0.8  },
-            temple:          { radius: 4.0, biomes: [1,2,5],     solid: true,  sink: 0.6  },
-            tower:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.4  },
-            lighthouse:      { radius: 2.0, biomes: [6],         solid: true,  sink: 0.4  },
-            windmill:        { radius: 2.5, biomes: [1],         solid: true,  sink: 0.5  },
-            bridge:          { radius: 4.0, biomes: null,        solid: false, sink: 0, walkable: true },
-            statue:          { radius: 3.0, biomes: null,        solid: true,  sink: 0.4  },
-            campfire:        { radius: 0.8, biomes: null,        solid: false, sink: 0.05 },
-            well:            { radius: 1.0, biomes: [1,2],       solid: true,  sink: 0.3  },
-            dock:            { radius: 2.0, biomes: [0,6],       solid: false, sink: 0, walkable: true },
-            ruins:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.5  },
-            market:          { radius: 1.5, biomes: null,        solid: true,  sink: 0.3  },
-            fencerow:        { radius: 0.5, biomes: [1,2],       solid: true,  sink: 0.15 },
-            bench:           { radius: 0.4, biomes: null,        solid: false, sink: 0.1, walkable: true },
-            lamppost:        { radius: 0.6, biomes: null,        solid: true,  sink: 0.1  },
-            shipwreck:       { radius: 2.0, biomes: [6],         solid: true,  sink: 0.3  },
+            // scale: multiplier applied ON TOP of WORLD_SCALE (1.0 = normal, 0.5 = half size)
+            // Small furniture needs scale < 1.0 or they become giant
+            tree:            { radius: 2.5, biomes: [1,2,5],    solid: true,  sink: 0.3, scale: 1.0  },
+            pine:            { radius: 2.0, biomes: [1,2,4],    solid: true,  sink: 0.2, scale: 1.0  },
+            palm:            { radius: 1.8, biomes: [5,6],      solid: true,  sink: 0.2, scale: 1.0  },
+            birch:           { radius: 2.0, biomes: [1,2],      solid: true,  sink: 0.2, scale: 1.0  },
+            deadtree:        { radius: 1.2, biomes: [3,4],      solid: true,  sink: 0.2, scale: 1.0  },
+            cactus:          { radius: 1.2, biomes: [3],         solid: true,  sink: 0.15,scale: 1.0  },
+            bush:            { radius: 0.8, biomes: [1,2,5],    solid: false, sink: 0.1, scale: 0.8  },
+            flower:          { radius: 0.3, biomes: [1,2,5,6],  solid: false, sink: 0.05,scale: 0.7  },
+            mushroom:        { radius: 0.4, biomes: [2,5],      solid: false, sink: 0.05,scale: 0.6  },
+            rock:            { radius: 1.0, biomes: null,        solid: true,  sink: 0.3, scale: 1.0  },
+            driftwood:       { radius: 1.0, biomes: [6],         solid: false, sink: 0.1, scale: 0.8  },
+            icespike:        { radius: 0.8, biomes: [4],         solid: true,  sink: 0.2, scale: 1.0  },
+            house:           { radius: 3.0, biomes: [1,2],       solid: true,  sink: 0.4, scale: 1.0  },
+            pyramid:         { radius: 5.0, biomes: [3,6],       solid: true,  sink: 0.6, scale: 1.0  },
+            castle:          { radius: 5.0, biomes: [1,2,4],     solid: true,  sink: 0.6, scale: 0.8  },
+            temple:          { radius: 4.0, biomes: [1,2,5],     solid: true,  sink: 0.5, scale: 1.0  },
+            tower:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.5, scale: 1.0  },
+            lighthouse:      { radius: 2.0, biomes: [6],         solid: true,  sink: 0.3, scale: 1.0  },
+            windmill:        { radius: 2.5, biomes: [1],         solid: true,  sink: 0.4, scale: 1.0  },
+            bridge:          { radius: 4.0, biomes: null,        solid: false, sink: 0,   scale: 1.0, walkable: true },
+            statue:          { radius: 3.0, biomes: null,        solid: true,  sink: 0.3, scale: 1.0  },
+            campfire:        { radius: 0.8, biomes: null,        solid: false, sink: 0.3, scale: 0.8  },
+            well:            { radius: 1.0, biomes: [1,2],       solid: true,  sink: 0.2, scale: 0.6  },
+            dock:            { radius: 2.0, biomes: [0,6],       solid: false, sink: 0.3, scale: 0.8, walkable: true },
+            ruins:           { radius: 2.5, biomes: null,        solid: true,  sink: 0.4, scale: 0.8  },
+            market:          { radius: 1.5, biomes: null,        solid: true,  sink: 0.2, scale: 0.6  },
+            fencerow:        { radius: 0.5, biomes: [1,2],       solid: true,  sink: 0.1, scale: 0.5  },
+            bench:           { radius: 0.4, biomes: null,        solid: false, sink: 0.05,scale: 0.4, walkable: true },
+            lamppost:        { radius: 0.6, biomes: null,        solid: true,  sink: 0.05,scale: 0.5  },
+            shipwreck:       { radius: 2.0, biomes: [6],         solid: true,  sink: 0.2, scale: 0.8  },
             npc:             { radius: 0.4, biomes: null,        solid: false },
             bird:            { radius: 0.2, biomes: null,        solid: false },
             butterfly:       { radius: 0.1, biomes: null,        solid: false },
@@ -531,7 +539,22 @@
             // Biome check
             if (rules.biomes && !rules.biomes.includes(biome.type)) return false;
 
-            // TODO: overlap check disabled — needs surface distance, not 3D euclidean
+            // Overlap check using surface distance
+            const searchDeg = 5;
+            const neighbors = spatialGrid.nearby(lat, lon, searchDeg);
+            const testDir = [nx, ny, nz];
+
+            for (const nb of neighbors) {
+                if (!nb.pos) continue;
+                const nbDir = nb.pos.clone().normalize();
+                const dot = Math.max(-1, Math.min(1, nx*nbDir.x + ny*nbDir.y + nz*nbDir.z));
+                const surfDist = Math.acos(dot) * PR;
+                const nbRules = getRules(nb.type);
+                // Minimum distance = sum of both objects' footprint radii (rough)
+                const minDist = (rules.radius || 1) * 0.4 + (nbRules.radius || 1) * 0.4;
+                if (surfDist < minDist) return false;
+            }
+
             return true;
         }
 
@@ -548,9 +571,9 @@
                 this.scale = 1;
             }
 
-            placeOnPlanet(h = 0) {
+            placeOnPlanet(h = 0, yawDeg = 0) {
                 this.pos = placeOnPlanet(this.lat, this.lon, h);
-                orientToSurface(this.mesh, this.pos);
+                orientToSurface(this.mesh, this.pos, yawDeg);
                 return this;
             }
 
@@ -608,10 +631,10 @@
                 this.mesh.userData.lArm.rotation.x = -s * 0.2;
                 this.mesh.userData.rArm.rotation.x = s * 0.2;
                 this.mesh.userData.head.position.y = 1.08 + Math.sin(t * 1.5 + this.phase) * 0.005;
-                // Wander
+                // Wander — sink slightly to match mesh surface
                 const wLat = this.homeLat + Math.sin(t * 0.15 + this.phase) * 1.5;
                 const wLon = this.homeLon + Math.cos(t * 0.12 + this.phase * 1.3) * 1.5;
-                const wp = placeOnPlanet(wLat, wLon);
+                const wp = placeOnPlanet(wLat, wLon, -0.3);
                 orientToSurface(this.mesh, wp);
             }
         }
@@ -647,14 +670,11 @@
                         this.mesh.userData.lWing.rotation.y = Math.sin(t * 15 + this.phase) * 0.6;
                         this.mesh.userData.rWing.rotation.y = -Math.sin(t * 15 + this.phase) * 0.6;
                     }
-                } else { // wander
-                    const wx = this.pos.x + Math.sin(t * 0.2 + this.phase) * 2;
-                    const wz = this.pos.z + Math.cos(t * 0.15 + this.phase * 1.3) * 2;
-                    const len = Math.sqrt(wx * wx + this.pos.y * this.pos.y + wz * wz);
-                    const n = new THREE.Vector3(wx / len, this.pos.y / len, wz / len);
-                    const wp = n.multiplyScalar(PR + 1.5);
-                    this.mesh.position.copy(wp);
-                    this.mesh.up.copy(wp.clone().normalize());
+                } else { // wander (sheep, crabs) — sink to match mesh surface
+                    const wLat = this.lat + Math.sin(t * 0.2 + this.phase) * 1.5;
+                    const wLon = this.lon + Math.cos(t * 0.15 + this.phase * 1.3) * 1.5;
+                    const wp = placeOnPlanet(wLat, wLon, -0.6);
+                    orientToSurface(this.mesh, wp);
                 }
             }
         }
@@ -714,8 +734,8 @@
             for(let i=0;i<3;i++){
                 const seg=new THREE.Mesh(new THREE.CylinderGeometry(.08+i*.015,.1+i*.02,h*.3,6),tm);
                 seg.position.set(i*.06,h*(.15+i*.25),0); seg.rotation.z=.05+i*.04; seg.castShadow=true; g.add(seg);
-                // Bark ring
-                const ring=new THREE.Mesh(new THREE.CylinderGeometry(.11+i*.015,.11+i*.015,.03,6),LM(0x7a5a38));
+                // Bark ring — subtle, same width as trunk
+                const ring=new THREE.Mesh(new THREE.CylinderGeometry(.09+i*.015,.09+i*.015,.02,6),LM(0x7a5a38));
                 ring.position.set(i*.04,h*(.25+i*.22),0); g.add(ring);
             }
             // Leaves
@@ -723,9 +743,6 @@
                 const leaf=new THREE.Mesh(new THREE.PlaneGeometry(2,0.45),lm);
                 leaf.position.set(.15+Math.cos(a)*.12,h*.88,Math.sin(a)*.12);
                 leaf.rotation.set(-.65+Math.random()*.15,a,0); g.add(leaf);
-                // Leaf spine
-                const spine=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,1.8,3),LM(0x3a8a3a));
-                spine.position.copy(leaf.position); spine.rotation.copy(leaf.rotation); g.add(spine);
             }
             // Coconuts
             for(let i=0;i<4;i++){const a=(i/4)*Math.PI*2;
@@ -735,26 +752,26 @@
         }
 
         function lpCactus(h=2){
-            const g=new THREE.Group(), m=LM(0x6aaa48);
-            // Body + sphere cap
-            const body=new THREE.Mesh(new THREE.CylinderGeometry(.18,.22,h,7),m);
+            const g=new THREE.Group(), m=LM(0x5a9a38);
+            // Body — simple rounded cylinder
+            const body=new THREE.Mesh(new THREE.CylinderGeometry(.15,.18,h,8),m);
             body.position.y=h/2; body.castShadow=true; g.add(body);
-            g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.18,6,6),m),{position:new THREE.Vector3(0,h+.05,0)}));
-            // 2 arms with joints
-            for(const s of[-1,1]){
-                const arm=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,h*.3,6),m);
-                arm.position.set(s*.3,h*.5,0); arm.rotation.z=s*.6; g.add(arm);
-                g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.09,5,5),m),{position:new THREE.Vector3(s*.42,h*.62,0)}));
-                const arm2=new THREE.Mesh(new THREE.CylinderGeometry(.06,.08,h*.2,5),m);
-                arm2.position.set(s*.42,h*.72,0); g.add(arm2);
-                g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.07,5,5),m),{position:new THREE.Vector3(s*.42,h*.82,0)}));
+            // Rounded top
+            g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.15,6,6),m),{position:new THREE.Vector3(0,h+.02,0),scale:new THREE.Vector3(1,.6,1)}));
+            // 2 simple L-shaped arms (no sphere joints)
+            for(const s of [-1,1]){
+                // Horizontal arm segment
+                const arm=new THREE.Mesh(new THREE.CylinderGeometry(.06,.07,h*.2,6),m);
+                arm.position.set(s*.25,h*.55,0); arm.rotation.z=s*Math.PI/2; g.add(arm);
+                // Vertical arm segment going up
+                const arm2=new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,h*.25,6),m);
+                arm2.position.set(s*.35,h*.7,0); g.add(arm2);
+                // Arm top cap
+                g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.055,5,5),m),{position:new THREE.Vector3(s*.35,h*.83,0),scale:new THREE.Vector3(1,.5,1)}));
             }
-            // Flower
+            // Small flower on top
             const fc=[0xff7eb3,0xffd166,0xff6b6b][Math.floor(Math.random()*3)];
-            for(let i=0;i<4;i++){const a=(i/4)*Math.PI*2;
-                g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.04,4,4),LM(fc)),
-                    {position:new THREE.Vector3(Math.cos(a)*.06,h+.15,Math.sin(a)*.06)}));}
-            g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.03,4,4),LM(0xffee55)),{position:new THREE.Vector3(0,h+.17,0)}));
+            g.add(M(new THREE.Mesh(new THREE.SphereGeometry(.04,4,4),LM(fc)),{position:new THREE.Vector3(0,h+.12,0)}));
             return g;
         }
 
@@ -772,7 +789,7 @@
                 for(let j=0;j<sp.count;j++) sp.setXYZ(j,sp.getX(j)+(Math.random()-.5)*s*.15,sp.getY(j)+(Math.random()-.5)*s*.1,sp.getZ(j)+(Math.random()-.5)*s*.15);
                 sg.computeVertexNormals();
                 const sat=new THREE.Mesh(sg,LM(c));
-                sat.position.set((Math.random()-.5)*s*1.2,-(s*.2),(Math.random()-.5)*s*1.2);
+                sat.position.set((Math.random()-.5)*s*1.2, s*0.1, (Math.random()-.5)*s*1.2);
                 g.add(sat);
             }
             return g;
@@ -1012,9 +1029,9 @@
             g.add(M(new THREE.Mesh(new THREE.ConeGeometry(w*0.7, w*0.45, 4),
                 new THREE.MeshLambertMaterial({color:0x8B5533})),
                 {position:new THREE.Vector3(0,w*0.87,0), rotation: new THREE.Euler(0,Math.PI/4,0), castShadow:true}));
-            // Door
-            g.add(M(new THREE.Mesh(new THREE.BoxGeometry(w*0.18,w*0.3,0.08),
-                new THREE.MeshLambertMaterial({color:0x5a3a1e})), {position:new THREE.Vector3(0,w*0.15,w*0.4)}));
+            // Door (bigger, more visible)
+            g.add(M(new THREE.Mesh(new THREE.BoxGeometry(w*0.3,w*0.45,0.08),
+                new THREE.MeshLambertMaterial({color:0x5a3a1e})), {position:new THREE.Vector3(0,w*0.22,w*0.41)}));
             // Windows (warm glow)
             const winMat = new THREE.MeshLambertMaterial({color:0xffeeaa, emissive:0xffcc44, emissiveIntensity:0.4});
             for(const wx of [-w*0.22, w*0.22]){
@@ -1125,7 +1142,7 @@
             hull.scale.set(1.8,.4,1); hull.position.y=.6; boat.add(hull);
             boat.add(M(new THREE.Mesh(new THREE.BoxGeometry(.5,.4,.6),LM(0xeee8dd)),{position:new THREE.Vector3(-.3,.9,0)}));
             boat.add(M(new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,1.5,4),LM(0x6b4226)),{position:new THREE.Vector3(.3,.9+.75,0)}));
-            boat.position.set(len+1,.1,1.5); boat.rotation.y=.3;
+            boat.position.set(len+1,.35,1.5); boat.rotation.y=.3;
             g.add(boat);
             return g;
         }
@@ -1305,15 +1322,18 @@
         let _currentZone = null;
 
         // Place a vegetation/structure/furniture object
-        function place(type, category, factory, lat, lon, s = 1) {
+        // yaw: rotation in degrees around the surface normal (0=default, 90=turned right, etc.)
+        function place(type, category, factory, lat, lon, s = 1, yaw = 0) {
             const cls = category === 'vegetation' ? Vegetation
                       : category === 'furniture'  ? Furniture
                       : Structure;
             const obj = new cls(type, factory(), lat, lon);
             obj.zone = _currentZone;
-            // Sink into ground based on object type — prevents floating edges on curved terrain
-            const sinkAmount = (getRules(type).sink || 0) * s * WORLD_SCALE;
-            obj.placeOnPlanet(-sinkAmount).setScale(s * WORLD_SCALE).addToScene();
+            const rules = getRules(type);
+            const typeScale = rules.scale || 1.0;
+            const finalScale = s * WORLD_SCALE * typeScale;
+            const sinkAmount = (rules.sink || 0) * finalScale;
+            obj.placeOnPlanet(-sinkAmount, yaw).setScale(finalScale).addToScene();
             if (obj.mesh.userData.blades) windmills.push(obj.mesh.userData.blades);
             if (obj.mesh.userData.fireLight) fireLights.push(obj.mesh.userData.fireLight);
             return obj;
@@ -1366,7 +1386,7 @@
         placeLM("pyramid", ()=>mkPyramid(5), 15, -30, "Great Pyramid");
         placeLM("pyramid", ()=>mkPyramid(3), 15, -4, "Small Pyramid");
         place("pyramid", "structure", ()=>mkPyramid(1.8), 15, 14);
-        placeLM("campfire", ()=>mkCampfire(), 8, -30, "Desert Camp");
+        placeLM("campfire", ()=>mkCampfire(), 2, -40, "Desert Camp");
         place("market", "furniture", mkMarket, 8, -22);
         scatter("cactus", "vegetation", ()=>lpCactus(1.5+Math.random()*1.5), 12, -18, 22, 12);
         scatter("rock", "vegetation", ()=>lpRock(.3+Math.random()*.5,0xa09880), 12, -18, 24, 15);
@@ -1425,7 +1445,7 @@
         // ZONE 5: Lighthouse Coast
         _currentZone = 5;
         placeLM("lighthouse", ()=>mkLighthouse(8), 25, 150, "Coastal Lighthouse");
-        place("dock", "structure", ()=>mkDock(5), 16, 154);
+        place("dock", "structure", ()=>mkDock(5), 16, 154, 1, 90);
         place("house", "structure", ()=>mkHouse(2,0xeee8dd), 25, 138);
         placeLM("campfire", ()=>mkCampfire(), 19, 144, "Beach Camp");
         scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 22, 148, 12, 6);
@@ -1444,7 +1464,7 @@
         // ZONE 7: Statue of Freedom
         _currentZone = 7;
         placeLM("statue", ()=>mkStatue(6), 30, -70, "Statue of Freedom");
-        place("dock", "structure", ()=>mkDock(4), 20, -66);
+        place("dock", "structure", ()=>mkDock(4), 20, -66, 1, 90);
         place("bench", "furniture", mkBench, 30, -80); place("bench", "furniture", mkBench, 30, -60);
         place("lamppost", "furniture", mkLamppost, 27, -76); place("lamppost", "furniture", mkLamppost, 27, -64);
         scatter("bush", "vegetation", ()=>lpBush(.35+Math.random()*.2), 27, -70, 14, 8);
@@ -1492,7 +1512,7 @@
         _currentZone = 11;
         place("house", "structure", ()=>mkHouse(2,0xff9966), 5, -100);
         place("house", "structure", ()=>mkHouse(1.8,0x66ccaa), 5, -112);
-        place("dock", "structure", ()=>mkDock(4), -4, -96);
+        place("dock", "structure", ()=>mkDock(4), -4, -96, 1, 90);
         placeLM("campfire", ()=>mkCampfire(), -1, -106, "Beach Resort");
         place("shipwreck", "structure", mkShipwreck, -6, -88);
         scatter("palm", "vegetation", ()=>lpPalm(3+Math.random()*2), 1, -102, 16, 6);
@@ -1702,9 +1722,9 @@
             return { point: n.clone().multiplyScalar(r), normal: n.clone() };
         }
 
-        // Initialize player on the surface at lat 40, lon 0
+        // Initialize player in an empty grassland area (away from all zones)
         {
-            const phi = (90 - 40) * Math.PI / 180, theta = Math.PI;
+            const phi = (90 - 30) * Math.PI / 180, theta = (180 + 180) * Math.PI / 180;
             const dir = new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta));
             const hit = snapToSurface(dir);
             player.groundPos.copy(hit.point);
@@ -1771,17 +1791,23 @@
             const planetHits = _charRay.intersectObject(planet);
             let groundR = planetHits.length > 0 ? planetHits[0].point.length() : groundHeight(dir.x, dir.y, dir.z);
 
-            // Build mesh lists once
+            // Build mesh lists once, force world matrix update
             if (!window._solidMeshes || window._solidMeshes.length === 0) {
                 window._solidMeshes = [];
                 window._walkableMeshes = [];
                 for (const obj of world.all) {
                     if (!obj.pos) continue;
                     const rules = getRules(obj.type);
-                    if (rules.solid && obj.collision) window._solidMeshes.push(obj.mesh);
-                    // Walkable = solid OR explicitly walkable (docks, bridges, benches)
-                    if ((rules.solid || rules.walkable) && obj.mesh) window._walkableMeshes.push(obj.mesh);
+                    if (rules.solid && obj.collision) {
+                        obj.mesh.updateMatrixWorld(true);
+                        window._solidMeshes.push(obj.mesh);
+                    }
+                    if (obj.category !== 'vegetation' && (rules.solid || rules.walkable) && obj.mesh) {
+                        obj.mesh.updateMatrixWorld(true);
+                        window._walkableMeshes.push(obj.mesh);
+                    }
                 }
+                console.log('Solid meshes:', window._solidMeshes.length, 'Walkable:', window._walkableMeshes.length);
             }
 
             // Check for landable object surfaces below MC
@@ -1880,18 +1906,8 @@
             const r = groundHeight(dir.x, dir.y, dir.z);
             const candidatePos = new THREE.Vector3(dir.x * r, dir.y * r, dir.z * r);
 
-            // COLLISION — mesh raycast.
-            // Boundary = visible mesh surface. Walk between columns,
-            // through doorways, bump into walls and trunks.
-            // Collect solid meshes once.
-            if (!window._solidMeshes || window._solidMeshes.length === 0) {
-                window._solidMeshes = [];
-                for (const obj of world.all) {
-                    if (!obj.collision || !obj.pos) continue;
-                    if (!getRules(obj.type).solid) continue;
-                    window._solidMeshes.push(obj.mesh);
-                }
-            }
+            // COLLISION — mesh raycast against solid objects.
+            // _solidMeshes built in updateChar() on first frame.
 
             player._collisions = 0;
             player._blockedBy = 'none';
@@ -1906,16 +1922,14 @@
                 // Base height: ground level + airborne (so rays work on rooftops too)
                 const base = player.groundPos.clone().add(up.clone().multiplyScalar(player.airborne));
 
-                // 7 rays at various heights and lateral offsets
-                const rays = [
-                    base.clone().add(up.clone().multiplyScalar(0.15)),
-                    base.clone().add(up.clone().multiplyScalar(0.5)),
-                    base.clone().add(up.clone().multiplyScalar(1.0)),
-                    base.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(MC_RADIUS)),
-                    base.clone().add(up.clone().multiplyScalar(0.3)).add(lateral.clone().multiplyScalar(-MC_RADIUS)),
-                    base.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(MC_RADIUS)),
-                    base.clone().add(up.clone().multiplyScalar(1.0)).add(lateral.clone().multiplyScalar(-MC_RADIUS)),
-                ];
+                // 9 rays: 3 heights x 3 lateral positions (center, left, right)
+                const R = MC_RADIUS * 1.2; // slightly wider than MC body
+                const rays = [];
+                for (const h of [0.15, 0.6, 1.1]) {
+                    for (const l of [0, R, -R]) {
+                        rays.push(base.clone().add(up.clone().multiplyScalar(h)).add(lateral.clone().multiplyScalar(l)));
+                    }
+                }
 
                 let closest = Infinity;
                 for (const origin of rays) {
