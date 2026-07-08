@@ -1,0 +1,12 @@
+{
+  "id": "2026-07-07-task-d15c",
+  "goal": "",
+  "startedAt": "2026-07-07T05:47:11.610Z",
+  "status": "active",
+  "iterations": 3,
+  "lastDoerSessionId": "53661f5a-2a08-421a-accc-854e7f893a38",
+  "lastDoerSessionCli": "cursor-agent",
+  "runState": "interrupted",
+  "runStateAt": 1783414509556,
+  "extensionVersion": "1.7.0"
+}

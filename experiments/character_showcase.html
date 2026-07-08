@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blue Marble — Asset Showcase (Poly Pizza CDN)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e8;font-family:'Segoe UI',sans-serif;overflow:hidden}
+#canvas-host{position:fixed;inset:0}
+#panel{position:fixed;top:0;left:0;bottom:0;z-index:10;background:rgba(20,20,40,0.94);
+width:280px;overflow-y:auto;padding:12px 14px;backdrop-filter:blur(8px)}
+#panel h2{font-size:1em;color:#6cf;margin-bottom:6px;position:sticky;top:0;
+background:rgba(20,20,40,0.98);padding:6px 0;z-index:1}
+.cat-label{font-size:0.72em;color:#fc6;margin:10px 0 4px;text-transform:uppercase;letter-spacing:1px}
+.item-btn{display:block;width:100%;text-align:left;background:rgba(108,207,255,0.08);
+color:#e0e0e8;border:1px solid rgba(108,207,255,0.18);padding:6px 8px;margin-bottom:3px;
+border-radius:5px;cursor:pointer;font-size:0.75em}
+.item-btn:hover{background:rgba(108,207,255,0.2)}
+.item-btn.active{background:#6cf;color:#1a1a2e;font-weight:700}
+#anim-panel{position:fixed;top:12px;right:12px;z-index:10;background:rgba(20,20,40,0.92);
+padding:12px 14px;border-radius:10px;backdrop-filter:blur(8px);min-width:200px;max-width:260px;
+max-height:70vh;overflow-y:auto}
+#anim-panel h3{font-size:0.85em;color:#6cf;margin-bottom:6px}
+.anim-btn{display:block;width:100%;text-align:left;background:rgba(255,255,255,0.06);
+color:#e0e0e8;border:1px solid rgba(255,255,255,0.12);padding:4px 8px;margin-bottom:2px;
+border-radius:4px;cursor:pointer;font-size:0.7em;font-family:Consolas,monospace}
+.anim-btn:hover{background:rgba(108,207,255,0.18)}
+.anim-btn.active{background:#6cf;color:#1a1a2e;font-weight:600}
+#info{position:fixed;bottom:12px;right:12px;z-index:10;background:rgba(20,20,40,0.85);
+padding:8px 12px;border-radius:8px;font-size:0.72em;line-height:1.5;color:#aaa;max-width:280px}
+#info strong{color:#6cf}
+#loading{position:fixed;inset:0;background:rgba(20,20,40,0.96);display:flex;
+align-items:center;justify-content:center;z-index:100;font-size:1.1em;color:#6cf;
+transition:opacity 0.3s}
+#loading.hidden{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="canvas-host"></div>
+<div id="loading">Loading...</div>
+
+<div id="panel">
+<h2>Quaternius Collection</h2>
+<div id="catalog"></div>
+<div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);font-size:0.6em;color:#555;line-height:1.4">
+All models CC0 by Quaternius via poly.pizza<br>
+Loaded from CDN — no local files<br>
+Orbit: drag · Zoom: scroll · Pan: right-drag
+</div>
+</div>
+
+<div id="anim-panel">
+<h3>Animations</h3>
+<div id="anim-list"><em style="color:#555">Click a model</em></div>
+</div>
+
+<div id="info">Select a model from the left panel.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ============================================================
+// CATALOG — all from static.poly.pizza CDN, CC0 Quaternius
+// ============================================================
+const CATALOG = {
+    'Men (11 characters, 24 anims each)': [
+        { name: 'Adventurer',      url: 'https://static.poly.pizza/bbe369ee-a686-42c7-adad-14356f5f2f15.glb' },
+        { name: 'Astronaut',       url: 'https://static.poly.pizza/0076345b-bbea-42d5-931c-4a5ad2050b18.glb' },
+        { name: 'Beach Character',  url: 'https://static.poly.pizza/f771a536-1c18-4a47-bb56-ceea4b603455.glb' },
+        { name: 'Business Man',    url: 'https://static.poly.pizza/e599abbe-7d73-488c-9d7e-3ead281e705c.glb' },
+        { name: 'Casual Character', url: 'https://static.poly.pizza/90a9e2d4-053f-42f1-99a2-8f5e1180ea7f.glb' },
+        { name: 'Farmer',          url: 'https://static.poly.pizza/81f2f0cf-6f53-4b57-92ea-dba0928620f2.glb' },
+        { name: 'Hoodie Character', url: 'https://static.poly.pizza/bcd66ec5-5e81-4901-a222-47abc875fe2a.glb' },
+        { name: 'King',            url: 'https://static.poly.pizza/29a3436b-3b06-4dbf-a236-bcec18f3351a.glb' },
+        { name: 'Punk',            url: 'https://static.poly.pizza/e56f23b5-3270-406f-8924-f77cad980c43.glb' },
+        { name: 'SWAT',            url: 'https://static.poly.pizza/713f6535-f4f3-4367-a4c6-ced126ae0936.glb' },
+        { name: 'Worker',          url: 'https://static.poly.pizza/3a5f3056-ffe6-42eb-bd52-122afcbd22b2.glb' },
+    ],
+    'Women (10 characters, 24 anims each)': [
+        { name: 'Adventurer',       url: 'https://static.poly.pizza/69689495-028d-4b81-8678-792338a5693e.glb' },
+        { name: 'Animated Woman 1', url: 'https://static.poly.pizza/46d6db5a-3c9f-4238-8cdf-8eb7194498dc.glb' },
+        { name: 'Animated Woman 2', url: 'https://static.poly.pizza/ba7a1955-ea51-4cb9-a561-188bdef0a6c7.glb' },
+        { name: 'Hooded Adventurer',url: 'https://static.poly.pizza/3186b8e9-afd5-4d48-846c-b2b530cd23e2.glb' },
+        { name: 'Punk',             url: 'https://static.poly.pizza/1d368679-1d9a-4d5c-9095-877144b02d00.glb' },
+        { name: 'Sci-Fi',           url: 'https://static.poly.pizza/a8624e73-27bd-4878-a17b-f5d9af209c85.glb' },
+        { name: 'Soldier',          url: 'https://static.poly.pizza/66a55d04-4286-44a3-b289-0d774c27db5b.glb' },
+        { name: 'Suit',             url: 'https://static.poly.pizza/1bd7759c-ab76-4178-8fe6-7706dffa7d5f.glb' },
+        { name: 'Witch',            url: 'https://static.poly.pizza/a43d6661-8a89-4818-a7eb-40e1e8430a4c.glb' },
+        { name: 'Worker',           url: 'https://static.poly.pizza/c0253218-85f2-4d67-b3f2-a4611a7901fe.glb' },
+    ],
+    'Generic Characters': [
+        { name: 'Platformer (18 anims)', url: 'https://static.poly.pizza/906e29d9-2e15-4c5c-a38a-fb99023acc9c.glb' },
+        { name: 'Base Character (45 anims)', url: 'https://static.poly.pizza/0b65e14d-a349-44cc-836c-efdeb6933d48.glb' },
+    ],
+    'Farm Animals': [
+        { name: 'Cow',     url: 'https://static.poly.pizza/48c5f4af-07d6-4493-a261-0919967afe85.glb' },
+        { name: 'Horse',   url: 'https://static.poly.pizza/30b503df-69cf-4086-b323-f1dcbb95a7c4.glb' },
+        { name: 'Llama',   url: 'https://static.poly.pizza/73641d10-547f-47d8-9c86-ad92158fd78b.glb' },
+        { name: 'Pig',     url: 'https://static.poly.pizza/665ee586-6494-4fbd-be46-fcbe600f653e.glb' },
+        { name: 'Pug',     url: 'https://static.poly.pizza/094335c0-632a-45f5-8583-27d5cab53b54.glb' },
+        { name: 'Sheep',   url: 'https://static.poly.pizza/a4bd2c4e-fe71-4dbd-9881-cf3ac8a00bbf.glb' },
+        { name: 'Zebra',   url: 'https://static.poly.pizza/ff99ce31-85dd-4863-b145-24a6646a2b20.glb' },
+    ],
+    'Nature': [
+        { name: 'Pine',             url: 'https://static.poly.pizza/c55b8641-4679-4a85-8bd8-2a20e79abecd.glb' },
+        { name: 'Pine (variant)',   url: 'https://static.poly.pizza/082c2026-56af-4e3f-bea7-9ae5de71101f.glb' },
+        { name: 'Twisted Tree',     url: 'https://static.poly.pizza/229336e6-4632-4bc7-af2e-ec1f3c8245f7.glb' },
+        { name: 'Twisted Tree 2',   url: 'https://static.poly.pizza/24873d46-c90a-4c3e-8981-a98d3bd816c5.glb' },
+        { name: 'Dead Tree',        url: 'https://static.poly.pizza/4db29f97-8e10-413d-be54-39ecda1a7c8d.glb' },
+        { name: 'Grass Wispy',      url: 'https://static.poly.pizza/b81bea53-a5a8-4c01-a43c-e1f6a3d5d170.glb' },
+        { name: 'Pebble',           url: 'https://static.poly.pizza/802d6e7e-73a5-4a54-8848-54ae9350077c.glb' },
+        { name: 'Rock Path',        url: 'https://static.poly.pizza/d4b8dc53-4a35-4e09-bac2-4eda41c07d48.glb' },
+    ],
+    'Buildings & Landmarks': [
+        { name: 'Castle (solid)',    url: 'https://static.poly.pizza/22111935-8912-4e80-836d-9b105da164f5.glb' },
+        { name: 'Castle 1234',       url: 'https://static.poly.pizza/3d4ba088-9759-4c61-8428-e287fdb331be.glb' },
+        { name: 'Castle (alt)',      url: 'https://static.poly.pizza/18456966-20f7-4d3c-ac6f-bf512bfbda81.glb' },
+        { name: 'Castle Kit',      url: 'https://static.poly.pizza/dc22806e-b00a-4890-b988-f716b0342c9c.glb' },
+        { name: 'Greek Temple',     url: 'https://static.poly.pizza/ab9c5809-9dd3-431a-ad3d-313f18288312.glb' },
+        { name: 'Church',           url: 'https://static.poly.pizza/5f73594a-1c56-432d-bc2e-f2ea1f1a84c9.glb' },
+        { name: 'Tower',            url: 'https://static.poly.pizza/749bb696-9058-4290-a5d6-92fb97a9a641.glb' },
+        { name: 'Lighthouse',       url: 'https://static.poly.pizza/d20bd92c-e18d-4d3d-83bd-2bb2c1a77cf5.glb' },
+        { name: 'Windmill',         url: 'https://static.poly.pizza/1b81d893-ed98-4c0e-9f68-2f3d125a4e43.glb' },
+        { name: 'Farm House',       url: 'https://static.poly.pizza/fedcf063-38c2-4ece-b064-f29960dd2193.glb' },
+        { name: 'Pyramid',          url: 'https://static.poly.pizza/e388ae1f-f495-4904-8e76-278a608fac58.glb' },
+        { name: 'Igloo',            url: 'https://static.poly.pizza/62cd5d5e-b9fd-4d48-b235-b1a35e99c3e6.glb' },
+        { name: 'Ruins',            url: 'https://static.poly.pizza/fa6cf69d-a091-4eb7-b62e-56290d8b9097.glb' },
+        { name: 'Tent',             url: 'https://static.poly.pizza/fc8d560d-91b5-439c-88bf-4cbddb7eadbb.glb' },
+    ],
+    'Props & Furniture': [
+        { name: 'Bench',            url: 'https://static.poly.pizza/623120d8-bebf-4bd9-bb09-3162c06c9741.glb' },
+        { name: 'Fountain',         url: 'https://static.poly.pizza/7b386b50-6518-418f-8269-47f0e0a54da9.glb' },
+        { name: 'Well',             url: 'https://static.poly.pizza/0e044203-f62e-4dad-ad3e-c3cb6cb393ac.glb' },
+        { name: 'Standing Lamp',    url: 'https://static.poly.pizza/f13cc704-a958-4da8-a434-dc356b14f0e8.glb' },
+        { name: 'Market Stand',     url: 'https://static.poly.pizza/e2633001-4cf5-46fa-ac68-575c9954f4ba.glb' },
+        { name: 'Small Bridge',     url: 'https://static.poly.pizza/e36966b4-e13e-46e8-aa2c-f9b643536d46.glb' },
+        { name: 'Boat',             url: 'https://static.poly.pizza/66ae3fa9-d6de-45dc-86c0-659786b865e1.glb' },
+        { name: 'Sail Ship',        url: 'https://static.poly.pizza/941391c3-04a0-43fe-9f7a-c8e7d3b3a77d.glb' },
+        { name: 'Docks',            url: 'https://static.poly.pizza/a34d55ba-16d6-4951-9126-8c15315cb6e4.glb' },
+        { name: 'Horse Statue',     url: 'https://static.poly.pizza/55b0aa03-543c-439d-a7d7-f0ac4c23578f.glb' },
+    ],
+    'Animals (animated)': [
+        { name: 'Beagle',           url: 'https://static.poly.pizza/75de184c-31e8-4343-8ce3-ffaaf256c32e.glb' },
+        { name: 'Cat',              url: 'https://static.poly.pizza/5d32eb38-9546-4ce4-aa77-bcef9328ee61.glb' },
+        { name: 'Deer',             url: 'https://static.poly.pizza/002f5e83-adaa-426b-8a93-dbb20868dcfb.glb' },
+        { name: 'Rabbit',           url: 'https://static.poly.pizza/321c031a-ff6e-4cdb-9497-f386e41ed68f.glb' },
+        { name: 'Chicken',          url: 'https://static.poly.pizza/09e17ae3-1d4e-45a6-837e-7ea95422a569.glb' },
+    ],
+    'Nature (new)': [
+        { name: 'Palm Tree',        url: 'https://static.poly.pizza/4c17decd-3087-4afe-9611-cfd92cca47cd.glb' },
+        { name: 'Cactus',           url: 'https://static.poly.pizza/e130904b-00de-4f96-b462-5244689aa8d8.glb' },
+    ],
+    'New Alternatives (review these)': [
+        { name: 'Campfire',         url: 'https://static.poly.pizza/06a7da63-09d6-40c5-b0ec-f6232a71a104.glb' },
+        { name: 'Small Bridge',     url: 'https://static.poly.pizza/e36966b4-e13e-46e8-aa2c-f9b643536d46.glb' },
+        { name: 'Mushroom',         url: 'https://static.poly.pizza/7298b2d4-1848-4ed4-8922-eb3b42cf1625.glb' },
+        { name: 'Fence',            url: 'https://static.poly.pizza/ee42b0f4-fbcd-425f-804e-02d791bc35f6.glb' },
+        { name: 'Lamp Post',        url: 'https://static.poly.pizza/1a94c508-7715-4b69-ba7e-c095f250b7d1.glb' },
+        { name: 'Wood Log',         url: 'https://static.poly.pizza/89d5c7b9-0735-4640-913d-87261dfecd32.glb' },
+        { name: 'Flowers',          url: 'https://static.poly.pizza/c25cb5dc-3cd3-470c-a08c-045af0c0fe3d.glb' },
+        { name: 'Flower Pot',       url: 'https://static.poly.pizza/a4099037-d834-455a-b706-d7878b039ceb.glb' },
+        { name: 'Birch Trees',      url: 'https://static.poly.pizza/457b2397-4bfb-41c4-862d-82d1592b2a5f.glb' },
+        { name: 'Crystal (ice)',    url: 'https://static.poly.pizza/5d75f150-80ee-4345-b823-7d566742501c.glb' },
+        { name: 'Barrel',           url: 'https://static.poly.pizza/6d3e8847-bda4-4d6c-8004-7b03cf848b13.glb' },
+        { name: 'Hay Bale',         url: 'https://static.poly.pizza/8ab0043c-9a54-47b1-9b46-31b98d2f6ed8.glb' },
+        { name: 'Canoe',            url: 'https://static.poly.pizza/f4658b1b-54f0-488c-8baf-93dc358a53fa.glb' },
+        { name: 'Flag',             url: 'https://static.poly.pizza/4cd7e950-9c30-4005-8a7d-81b4d555715e.glb' },
+    ],
+    'Fantasy Buildings': [
+        { name: 'Village Market',   url: 'https://static.poly.pizza/d99b4be3-5157-4dda-b308-ad77acbe8801.glb' },
+        { name: 'Fortress',         url: 'https://static.poly.pizza/c3ccd51c-0343-4237-83f4-0bc0183911d6.glb' },
+        { name: 'Castle Fortress',  url: 'https://static.poly.pizza/89e11ad8-811d-4055-b041-12a959ac2973.glb' },
+        { name: 'Hut',              url: 'https://static.poly.pizza/36d65045-d2ff-4689-a34d-a4acbe1873cb.glb' },
+        { name: 'Market Stalls',    url: 'https://static.poly.pizza/e5bf8ed1-969f-424b-924a-a7aea1d92d9a.glb' },
+        { name: 'Port',             url: 'https://static.poly.pizza/27270a0e-cb71-40f7-91b1-1421ab9b17b9.glb' },
+    ],
+};
+
+// ============================================================
+// SCENE
+// ============================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 15, 45);
+const camera = new THREE.PerspectiveCamera(40, (innerWidth-280)/innerHeight, 0.01, 1000);
+camera.position.set(3, 2.5, 5);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth - 280, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+renderer.shadowMap.enabled = true;
+const host = document.getElementById('canvas-host');
+host.style.left = '280px';
+host.appendChild(renderer.domElement);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.target.set(0, 1, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(5, 8, 5); sun.castShadow = true; scene.add(sun);
+scene.add(new THREE.DirectionalLight(0x88aaff, 0.25));
+const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(12, 32),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 1 })
+);
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+scene.add(new THREE.GridHelper(12, 24, 0x444466, 0x2a2a3a));
+
+// ============================================================
+// LOADER
+// ============================================================
+let currentModel = null, mixer = null, actions = {}, activeAction = null;
+const clock = new THREE.Clock();
+const gltfLoader = new THREE.GLTFLoader();
+const loadingEl = document.getElementById('loading');
+
+function clearModel() {
+    if (currentModel) {
+        scene.remove(currentModel);
+        currentModel.traverse(n => {
+            if (n.geometry) n.geometry.dispose();
+            if (n.material) (Array.isArray(n.material)?n.material:[n.material]).forEach(m=>m.dispose());
+        });
+        currentModel = null;
+    }
+    mixer = null; actions = {}; activeAction = null;
+}
+
+function fitCamera(model) {
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const d = Math.max(size.x, size.y, size.z) * 2.5;
+    camera.position.set(d*0.7, d*0.5, d);
+    controls.target.copy(center); controls.update();
+}
+
+function showModel(model, animations, label) {
+    clearModel();
+    currentModel = model;
+    scene.add(model);
+    model.traverse(n => { if(n.isMesh){n.castShadow=true;n.receiveShadow=true;} });
+    fitCamera(model);
+
+    // Info panel
+    const box = new THREE.Box3().setFromObject(model);
+    const sz = new THREE.Vector3(); box.getSize(sz);
+    let meshCount = 0, verts = 0;
+    model.traverse(n => { if(n.isMesh){ meshCount++; if(n.geometry&&n.geometry.attributes.position) verts+=n.geometry.attributes.position.count; }});
+    document.getElementById('info').innerHTML =
+        '<strong>' + label + '</strong><br>' +
+        'Size: ' + sz.x.toFixed(1)+'m x '+sz.y.toFixed(1)+'m x '+sz.z.toFixed(1)+'m<br>' +
+        'Meshes: '+meshCount+' &middot; Verts: '+verts+'<br>' +
+        'Animations: '+(animations?animations.length:0);
+
+    // Animation buttons
+    const list = document.getElementById('anim-list');
+    list.innerHTML = '';
+    if (animations && animations.length) {
+        mixer = new THREE.AnimationMixer(model);
+        animations.forEach(clip => {
+            actions[clip.name] = mixer.clipAction(clip);
+            const btn = document.createElement('button');
+            btn.className = 'anim-btn';
+            btn.textContent = clip.name.replace(/^(Rig\||CharacterArmature\|)/, '');
+            btn.dataset.name = clip.name;
+            btn.onclick = () => playAnim(clip.name);
+            list.appendChild(btn);
+        });
+        const idle = animations.find(c => /idle/i.test(c.name) && !/gun|torch|spell|sit/i.test(c.name));
+        playAnim(idle ? idle.name : animations[0].name);
+    } else {
+        list.innerHTML = '<em style="color:#555">No animations (static prop)</em>';
+    }
+}
+
+function playAnim(name) {
+    if (!mixer || !actions[name]) return;
+    const next = actions[name];
+    if (activeAction && activeAction !== next) activeAction.fadeOut(0.2);
+    next.reset().fadeIn(0.2).play();
+    activeAction = next;
+    document.querySelectorAll('.anim-btn').forEach(b => b.classList.toggle('active', b.dataset.name===name));
+}
+
+function loadItem(entry) {
+    loadingEl.classList.remove('hidden');
+    loadingEl.textContent = 'Loading ' + entry.name + '...';
+    document.querySelectorAll('.item-btn').forEach(b => b.classList.toggle('active', b.dataset.url===entry.url));
+    gltfLoader.load(entry.url, (gltf) => {
+        showModel(gltf.scene, gltf.animations, entry.name);
+        loadingEl.classList.add('hidden');
+    }, undefined, (err) => {
+        loadingEl.textContent = 'Error loading ' + entry.name;
+        console.error(err);
+        setTimeout(() => loadingEl.classList.add('hidden'), 2000);
+    });
+}
+
+// ============================================================
+// BUILD CATALOG UI
+// ============================================================
+const catalogEl = document.getElementById('catalog');
+let firstEntry = null;
+for (const [category, items] of Object.entries(CATALOG)) {
+    const label = document.createElement('div');
+    label.className = 'cat-label';
+    label.textContent = category;
+    catalogEl.appendChild(label);
+    for (const entry of items) {
+        if (!firstEntry) firstEntry = entry;
+        const btn = document.createElement('button');
+        btn.className = 'item-btn';
+        btn.dataset.url = entry.url;
+        btn.textContent = entry.name;
+        btn.onclick = () => loadItem(entry);
+        catalogEl.appendChild(btn);
+    }
+}
+if (firstEntry) loadItem(firstEntry);
+
+// ============================================================
+// RENDER
+// ============================================================
+function animate() {
+    requestAnimationFrame(animate);
+    if (mixer) mixer.update(clock.getDelta());
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+addEventListener('resize', () => {
+    camera.aspect = (innerWidth-280)/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth-280, innerHeight);
+});
+</script>
+</body>
+</html>

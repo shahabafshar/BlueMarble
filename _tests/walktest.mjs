@@ -13,6 +13,14 @@
  * 5. Measure the distance from feet to that triangle
  *
  * This is what the player's eyes see.
+ *
+ * Run (from _tests/): node walktest.mjs
+ * Output: a 600-frame trajectory recording with per-frame metrics
+ * (feet-to-mesh gap, forward-heading jitter, tilt). Read it to spot
+ * WHERE along a walk the character drifts — steady low gap = healthy;
+ * a spike at a particular frame localizes the terrain that breaks
+ * grounding. Use fulltest.mjs for the pass/fail gate; this is the
+ * diagnostic that tells you where to look.
  */
 
 import { createNoise3D } from 'simplex-noise';

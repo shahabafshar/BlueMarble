@@ -4,7 +4,11 @@
  * Tests the ground physics by extracting and running the exact
  * game code in Node.js — no browser or WebGL needed.
  *
- * Run: node test.mjs
+ * Run (from _tests/): node test.mjs
+ * Pass criteria: finishes in < 1s and prints no FAIL lines — a cheap
+ * sanity check that the executable grounding math still matches the
+ * game's formulas. Any FAIL means index.html and the test replica
+ * have drifted apart.
  */
 
 import { createNoise3D } from 'simplex-noise';

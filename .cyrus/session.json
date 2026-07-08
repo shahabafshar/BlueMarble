@@ -1,0 +1,18 @@
+{
+  "extensionId": "cyrus-build.cyrus-missions",
+  "extensionVersion": "1.7.4",
+  "ide": "Visual Studio Code",
+  "ideVersion": "1.126.0",
+  "platform": "win32",
+  "arch": "x64",
+  "nodeVersion": "v24.15.0",
+  "doer": {
+    "cli": "cursor-agent",
+    "model": null
+  },
+  "manager": {
+    "cli": "claude",
+    "model": null
+  },
+  "writtenAt": "2026-07-07T11:52:09.172Z"
+}

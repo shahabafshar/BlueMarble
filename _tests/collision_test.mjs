@@ -4,7 +4,11 @@
  * Creates a test world with objects at known positions,
  * walks the MC directly into each one, and checks if it was blocked.
  *
- * Run: node _tests/collision_test.mjs
+ * Run (from _tests/): node collision_test.mjs
+ * Expected output: one line per object reporting blocked / not-blocked.
+ * Passes when solid surfaces block the player and open gaps (doorways,
+ * column spacing) stay walk-through — matching the "objects are
+ * destinations, not obstacles" invariant.
  */
 
 import { createNoise3D } from 'simplex-noise';

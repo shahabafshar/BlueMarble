@@ -12,7 +12,11 @@
  * 6. Edges: Any jitter at face boundaries?
  * 7. Objects: Are placed objects at the same height as the character would be?
  *
- * Run: node fulltest.mjs
+ * This is the GATEKEEPER — run it after any grounding change.
+ *
+ * Run (from _tests/): node fulltest.mjs
+ * Pass criteria (per route): world gap < 0.05, forward jitter < 2°/frame,
+ * tilt < 1°. Any route exceeding these means the grounding regressed.
  */
 
 import { createNoise3D } from 'simplex-noise';

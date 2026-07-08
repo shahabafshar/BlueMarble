@@ -1,5 +1,17 @@
-// Focused test: load the game, verify the GLB character loaded,
-// switch animations by simulating walk, and capture screenshots.
+// glbtest.cjs — verifies the inlined GLB character loads and that its
+// animation clips switch correctly.
+//
+// Purpose: opens index.html in a headless browser, confirms the base64
+// GLB decoded into a real animated model (not the procedural fallback),
+// then drives the character (idle → walk → run → jump) and checks the
+// AnimationMixer crossfades to the matching clip. Captures screenshots
+// along the way for eyeballing.
+//
+// Run (from _tests/): node glbtest.cjs
+// Passing: console shows the GLB loaded and each animation state maps to
+// its clip (Idle/Walking/Running/Jump) with no console errors; if the
+// blob is missing or decode fails the game falls back to the procedural
+// character, which this test flags.
 const puppeteer = require('puppeteer');
 const path = require('path');
 

@@ -1,0 +1,53 @@
+{
+  "items": [
+    {
+      "id": "c1",
+      "text": "README.md exists at repo root with all six sections (what it is / design philosophy / install-run / usage with examples / configuration / contributing) plus an honest current-state section, written in the summarize-and-link voice from cylinder/doc-conventions.md — no wholesale duplication of CLAUDE.md or _docs/ content, every deep topic linked to its _docs/ file with a working relative path.",
+      "status": "done",
+      "iter": 1,
+      "notes": "README.md exists at root with all six sections + 'Current state / known issues'. Verified summarize-and-link voice: links to _docs/architecture/design-philosophy.md, grounding.md, zones.md, _docs/PROJECT.md, _docs/guides/testing.md, CLAUDE.md — all paths exist per project-facts.md file surface. No wholesale duplication; sections are condensed with pointers. Minor nit: line 127 ('All values above were re-verified...') is meta-commentary that reads oddly in a human README, but not gating."
+    },
+    {
+      "id": "c2",
+      "text": "Every constant, keybind, test command, and threshold stated in README.md matches cylinder/project-facts.md and the actual source (PR=50, CH=1.8, WORLD_SCALE=2.5, MAX_WALK=0.6, MAX_RUN=1.2, detail 6, full control list incl. E/T/Y/N/B/M/C emotes, fulltest pass criteria: gap < 0.05, jitter < 2°/frame, tilt < 1°) — verified by re-grepping index.html, not copied from memory.",
+      "status": "done",
+      "iter": 2,
+      "notes": "Verified against source: PR=50/CH=1.8/WORLD_SCALE=2.5 (index.html:148-150), MAX_WALK=0.6/MAX_RUN=1.2 (156-157), detail 6 (284), camera mapping 1=first person/2=close/3=orbit (3182-3200) matches README line 69 — iter-1 reversal fixed. Full control list incl. E/T/Y/N/B/M/C present; fulltest criteria (gap<0.05, jitter<2°/frame, tilt<1°) match README:91."
+    },
+    {
+      "id": "c3",
+      "text": "index.html has section-level block comments at the top of the major non-obvious systems (groundHeight, the moveOnSurface/updateChar analytical+raycast hybrid, getFrame/_lastFwRef pole-crossing reference, GLB inline loader, zone placement) that explain WHY the design exists and what simpler alternative failed, and `git diff index.html` shows comment-only changes with the base64 GLB block untouched.",
+      "status": "partial",
+      "iter": 2,
+      "notes": "4 of 5 comments present and good: groundHeight WHY block (index.html:244-254), getFrame/_lastFwRef pole-crossing (2925-2936), moveOnSurface/updateChar hybrid rationale (2983-2996), GLB inline loader (2505-2519). MISSING: zone placement (line 1584-1586 is still a bare '// ZONE PLACEMENT SYSTEM (class-based)' header with no why/design rationale). Doer edits appear comment-only, but note git diff vs HEAD on index.html is huge (1156 insertions) from PRE-EXISTING uncommitted work, so 'git diff shows comment-only' is unverifiable against HEAD."
+    },
+    {
+      "id": "c4",
+      "text": "Each of the seven canonical _tests scripts (test.mjs, fulltest.mjs, walktest.mjs, collision_test.mjs, visualtest.cjs, glbtest.cjs, splice_glb_inline.cjs) has a header comment stating purpose, how to run from _tests/, and pass criteria / expected output — and no scratch/experiment scripts were touched.",
+      "status": "partial",
+      "iter": 2,
+      "notes": "Doer made ZERO edits to _tests this iteration (tool activity confirms). Pre-existing headers partially satisfy: test.mjs, collision_test.mjs, splice_glb_inline.cjs have purpose+run; fulltest.mjs/walktest.mjs have purpose but no visible run line/pass criteria in header; glbtest.cjs is a 2-line comment without run instructions; visualtest.cjs has NO header comment at all."
+    },
+    {
+      "id": "c5",
+      "text": "README's contributing section states the absolute invariants (mesh-surface collision only, no bounding volumes, no camera lerp, groundHeight continuity, character transform contract, single-file rule) and the requirement to mirror formula changes into _tests replicas, naming fulltest.mjs as the gatekeeper.",
+      "status": "done",
+      "iter": 1,
+      "notes": "Contributing section (README lines 129-154) states all required invariants: mesh-surface collision via raycasting / never bounding spheres-boxes, no camera lerp, groundHeight() continuity, character.position/.quaternion/.scale contract, single-file rule (no sibling assets, no fetch, GLB stays inlined), mirror formula changes into _tests replicas, and names fulltest.mjs as the gatekeeper. Matches project-facts.md invariants verbatim in substance."
+    },
+    {
+      "id": "c6",
+      "text": "Nothing broke: `node _tests/test.mjs` passes, index.html opens with no console errors, and no files were created beyond README.md (untracked experiment files, index.v*.html, and _docs/ are all untouched).",
+      "status": "partial",
+      "iter": 2,
+      "notes": "No files created beyond README.md (files_changed: README.md, index.html, cyrus gates.jsonl only) ✓. But doer never ran node _tests/test.mjs (no Bash calls in tool activity) and never verified index.html opens without console errors — the doer's third index.html edit was still mid-flight when the summary cut off. Edits look comment-only but nothing was executed to prove nothing broke."
+    },
+    {
+      "id": "c7",
+      "text": "The full doc-conventions.md self-check rubric (7 points) has been run and passes for the final state of the iteration's changes.",
+      "status": "pending"
+    }
+  ],
+  "createdAt": "2026-07-07T08:23:46.342Z",
+  "updatedAt": "2026-07-07T08:42:56.851Z"
+}

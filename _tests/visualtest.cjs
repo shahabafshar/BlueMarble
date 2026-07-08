@@ -1,3 +1,14 @@
+// visualtest.cjs — headless-browser screenshot capture for visual inspection.
+//
+// Purpose: launches its own headless browser, loads index.html, walks the
+// character across terrain, and saves screenshots so a human can eyeball
+// ground adherence (feet on the mesh, no floating/sinking) — the parts a
+// numeric test can't fully judge.
+//
+// Run (from _tests/): node visualtest.cjs
+// Output: PNG screenshots written to _tests/screenshots/ (transient test
+// artifacts — not committed, not referenced by docs). Passing = the images
+// show the character grounded with no visible gap.
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');

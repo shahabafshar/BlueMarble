@@ -5,3 +5,11 @@ _tests/package-lock.json
 *.tmp
 _t.js
 CLAUDE.md
+
+# Added by Cyrus — dependency / build / cache noise
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.DS_Store

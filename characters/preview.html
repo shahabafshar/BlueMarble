@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blue Marble — Character Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a24; color: #e0e0e8; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #canvas-host { position: fixed; inset: 0; }
+        #drop-overlay {
+            position: fixed; inset: 0; background: rgba(20, 20, 35, 0.92);
+            display: none; align-items: center; justify-content: center; z-index: 100;
+            pointer-events: none; font-size: 1.5em; text-align: center;
+        }
+        body.dragging #drop-overlay { display: flex; }
+        #drop-overlay div { padding: 40px; border: 3px dashed #6cf; border-radius: 16px; }
+        #panel {
+            position: fixed; top: 16px; left: 16px; z-index: 10;
+            background: rgba(30, 30, 45, 0.9); padding: 14px 16px;
+            border-radius: 10px; backdrop-filter: blur(10px);
+            min-width: 280px; max-width: 360px;
+        }
+        #panel h2 { font-size: 1em; margin-bottom: 8px; color: #6cf; }
+        #panel .hint { font-size: 0.75em; color: #8a8a9e; margin-bottom: 10px; line-height: 1.5; }
+        #file-input { display: block; margin-bottom: 10px; font-size: 0.75em; }
+        #file-input::file-selector-button {
+            background: #6cf; color: #1a1a24; border: none; padding: 6px 12px;
+            border-radius: 6px; cursor: pointer; font-weight: 600; margin-right: 8px;
+        }
+        #model-info { font-size: 0.78em; line-height: 1.6; }
+        #model-info strong { color: #6cf; }
+        #anim-list { margin-top: 10px; max-height: 300px; overflow-y: auto; }
+        #anim-list button {
+            display: block; width: 100%; text-align: left;
+            background: rgba(108, 207, 255, 0.12); color: #e0e0e8;
+            border: 1px solid rgba(108, 207, 255, 0.3); padding: 6px 10px;
+            margin-bottom: 4px; border-radius: 6px; cursor: pointer; font-size: 0.78em;
+            font-family: 'Consolas', monospace;
+        }
+        #anim-list button:hover { background: rgba(108, 207, 255, 0.25); }
+        #anim-list button.active { background: #6cf; color: #1a1a24; font-weight: 600; }
+        #known-list { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
+        #known-list h3 { font-size: 0.8em; color: #aaa; margin-bottom: 6px; }
+        #known-list button {
+            display: inline-block; background: rgba(255,255,255,0.08); color: #e0e0e8;
+            border: 1px solid rgba(255,255,255,0.15); padding: 4px 10px;
+            margin: 0 4px 4px 0; border-radius: 12px; cursor: pointer; font-size: 0.72em;
+        }
+        #known-list button:hover { background: rgba(108, 207, 255, 0.2); border-color: #6cf; }
+        #status { position: fixed; bottom: 16px; left: 16px; right: 16px; text-align: center;
+                  font-size: 0.75em; color: #8a8a9e; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="canvas-host"></div>
+    <div id="drop-overlay"><div>Drop a .glb file anywhere</div></div>
+
+    <div id="panel">
+        <h2>Character Preview</h2>
+        <div class="hint">
+            Drag &amp; drop a <code>.glb</code> file to inspect it.<br>
+            Mouse drag = orbit · Scroll = zoom · Right-click drag = pan
+        </div>
+        <input type="file" id="file-input" accept=".glb,.gltf">
+        <div id="model-info">No model loaded.</div>
+        <div id="anim-list"></div>
+        <div id="known-list">
+            <h3>Try one of the staged models:</h3>
+            <button data-path="robots/RobotExpressive.glb">Robot</button>
+            <button data-path="humans/KenneySoldier.glb">Kenney Soldier ★</button>
+            <button data-path="humans/KenneyChar.glb">Kenney Char</button>
+            <button data-path="humans/HVGirl.glb">HVGirl</button>
+            <button data-path="humans/BigVegas.glb">Big Vegas</button>
+            <button data-path="humans/CesiumMan.glb">CesiumMan</button>
+            <button data-path="fantasy/Goblin.glb">Goblin</button>
+            <button data-path="fantasy/MawGooey.glb">Maw Gooey</button>
+            <button data-path="creatures/Fox.glb">Fox</button>
+            <button data-path="creatures/Deer.glb">Deer</button>
+            <button data-path="creatures/Slime.glb">Slime</button>
+            <button data-path="creatures/Flamingo.glb">Flamingo</button>
+            <button data-path="creatures/Parrot.glb">Parrot</button>
+            <button data-path="creatures/Stork.glb">Stork</button>
+            <button data-path="creatures/Horse.glb">Horse</button>
+            <div style="height:8px"></div>
+            <div style="font-size:0.7em; color:#aaa; margin-bottom:4px;">Nature props (converted from FBX):</div>
+            <button data-path="nature/Tree1.glb">Tree1</button>
+            <button data-path="nature/Tree2.glb">Tree2</button>
+            <button data-path="nature/Tree3.glb">Tree3</button>
+            <button data-path="nature/Tree4.glb">Tree4</button>
+            <button data-path="nature/Bush1.glb">Bush1</button>
+            <button data-path="nature/Bush2.glb">Bush2</button>
+            <button data-path="nature/Bush3.glb">Bush3</button>
+            <button data-path="nature/Grass1.glb">Grass1</button>
+            <button data-path="nature/Grass2.glb">Grass2</button>
+            <button data-path="nature/Grass3.glb">Grass3</button>
+            <button data-path="nature/Rock1.glb">Rock1</button>
+            <button data-path="nature/Rock2.glb">Rock2</button>
+            <button data-path="nature/Rock3.glb">Rock3</button>
+            <div style="font-size:0.7em; color:#666; margin-top:6px;">
+                (these load only when served via http; over file:// use drag &amp; drop)
+            </div>
+        </div>
+    </div>
+    <div id="status">Three.js r128 · GLTFLoader · OrbitControls</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // ---- scene ----
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a24);
+        scene.fog = new THREE.Fog(0x1a1a24, 10, 30);
+
+        const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.set(2.5, 2, 4);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setPixelRatio(devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-host').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 1, 0);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+        sun.position.set(5, 8, 5);
+        sun.castShadow = true;
+        sun.shadow.camera.left = -5; sun.shadow.camera.right = 5;
+        sun.shadow.camera.top = 5;   sun.shadow.camera.bottom = -5;
+        scene.add(sun);
+        const fill = new THREE.DirectionalLight(0x88aaff, 0.3);
+        fill.position.set(-3, 4, -2);
+        scene.add(fill);
+
+        // Ground
+        const ground = new THREE.Mesh(
+            new THREE.CircleGeometry(8, 32),
+            new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 1 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        const gridHelper = new THREE.GridHelper(8, 16, 0x444466, 0x2a2a3a);
+        scene.add(gridHelper);
+
+        // ---- model loader ----
+        let currentModel = null;
+        let mixer = null;
+        let actions = {};
+        let activeAction = null;
+        const clock = new THREE.Clock();
+
+        function clearModel() {
+            if (currentModel) {
+                scene.remove(currentModel);
+                currentModel.traverse(n => {
+                    if (n.geometry) n.geometry.dispose();
+                    if (n.material) {
+                        if (Array.isArray(n.material)) n.material.forEach(m => m.dispose());
+                        else n.material.dispose();
+                    }
+                });
+                currentModel = null;
+            }
+            mixer = null;
+            actions = {};
+            activeAction = null;
+        }
+
+        function fitCameraToModel(model) {
+            const box = new THREE.Box3().setFromObject(model);
+            const size = new THREE.Vector3(); box.getSize(size);
+            const center = new THREE.Vector3(); box.getCenter(center);
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            // Frame with some headroom
+            const dist = maxDim * 2.5;
+            camera.position.set(dist, dist * 0.7, dist);
+            controls.target.copy(center);
+            controls.update();
+        }
+
+        function showModel(model, animations, sourceLabel) {
+            clearModel();
+            currentModel = model;
+            scene.add(model);
+
+            model.traverse(n => {
+                if (n.isMesh) {
+                    n.castShadow = true;
+                    n.receiveShadow = true;
+                }
+            });
+
+            // Auto-fit camera
+            fitCameraToModel(model);
+
+            // Build animation list
+            const list = document.getElementById('anim-list');
+            list.innerHTML = '';
+            if (animations && animations.length > 0) {
+                mixer = new THREE.AnimationMixer(model);
+                animations.forEach(clip => {
+                    const action = mixer.clipAction(clip);
+                    actions[clip.name] = action;
+                    const btn = document.createElement('button');
+                    btn.textContent = '▸ ' + (clip.name || '(unnamed)');
+                    btn.dataset.name = clip.name;
+                    btn.addEventListener('click', () => playAnimation(clip.name));
+                    list.appendChild(btn);
+                });
+                // Auto-play the first one
+                playAnimation(animations[0].name);
+            } else {
+                list.innerHTML = '<div style="font-size:0.75em; color:#888; padding:6px;">No animations.</div>';
+            }
+
+            // Show info
+            const box = new THREE.Box3().setFromObject(model);
+            const size = new THREE.Vector3(); box.getSize(size);
+            let meshCount = 0, vertCount = 0;
+            model.traverse(n => {
+                if (n.isMesh) {
+                    meshCount++;
+                    if (n.geometry && n.geometry.attributes && n.geometry.attributes.position) {
+                        vertCount += n.geometry.attributes.position.count;
+                    }
+                }
+            });
+            document.getElementById('model-info').innerHTML =
+                '<strong>' + (sourceLabel || 'unnamed') + '</strong><br>' +
+                'bbox: ' + size.x.toFixed(2) + ' × ' + size.y.toFixed(2) + ' × ' + size.z.toFixed(2) + '<br>' +
+                'meshes: ' + meshCount + ' · verts: ' + vertCount + '<br>' +
+                'animations: ' + (animations ? animations.length : 0);
+        }
+
+        function playAnimation(name) {
+            if (!mixer || !actions[name]) return;
+            const next = actions[name];
+            if (activeAction && activeAction !== next) {
+                activeAction.fadeOut(0.2);
+            }
+            next.reset().fadeIn(0.2).play();
+            activeAction = next;
+            // Highlight in UI
+            document.querySelectorAll('#anim-list button').forEach(b => {
+                b.classList.toggle('active', b.dataset.name === name);
+            });
+        }
+
+        // Shared GLTFLoader with Draco support — Goblin and several other
+        // CC0 character GLBs use Draco mesh compression, which silently
+        // fails to parse without a DRACOLoader instance attached.
+        const _gltfLoader = new THREE.GLTFLoader();
+        if (typeof THREE.DRACOLoader === 'function') {
+            const draco = new THREE.DRACOLoader();
+            draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+            _gltfLoader.setDRACOLoader(draco);
+        }
+
+        function loadFromArrayBuffer(buffer, sourceLabel) {
+            _gltfLoader.parse(buffer, '', (gltf) => {
+                showModel(gltf.scene, gltf.animations, sourceLabel);
+            }, (err) => {
+                console.error('parse error:', err);
+                document.getElementById('model-info').innerHTML =
+                    '<strong style="color:#f66">parse error</strong><br>' +
+                    '<span style="font-size:0.7em">' + (err && err.message || err) + '</span>';
+            });
+        }
+
+        function loadFromURL(url) {
+            fetch(url).then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.arrayBuffer();
+            }).then(buf => {
+                loadFromArrayBuffer(buf, url.split('/').pop());
+            }).catch(err => {
+                document.getElementById('model-info').innerHTML =
+                    '<strong style="color:#f66">load error</strong><br>' +
+                    '<span style="font-size:0.7em">' + (err && err.message || err) + '<br>' +
+                    'fetch only works over http; use drag &amp; drop for file://</span>';
+            });
+        }
+
+        // ---- file input ----
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => loadFromArrayBuffer(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        });
+
+        // ---- drag and drop ----
+        document.body.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            document.body.classList.add('dragging');
+        });
+        document.body.addEventListener('dragover', (e) => { e.preventDefault(); });
+        document.body.addEventListener('dragleave', (e) => {
+            // Only un-highlight when leaving the body itself
+            if (e.target === document.body || !e.relatedTarget) {
+                document.body.classList.remove('dragging');
+            }
+        });
+        document.body.addEventListener('drop', (e) => {
+            e.preventDefault();
+            document.body.classList.remove('dragging');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => loadFromArrayBuffer(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        });
+
+        // ---- known list buttons ----
+        // Over file://, fetch() is blocked by CORS, so the quick-load
+        // buttons can't work. Detect at startup and either wire fetch (http)
+        // or show clear "drag this file" guidance (file://).
+        const _isFileProto = location.protocol === 'file:';
+        if (_isFileProto) {
+            const hint = document.querySelector('#known-list h3');
+            if (hint) {
+                hint.innerHTML = 'Click a name to see its path, then drag the file from your file explorer:';
+                hint.style.color = '#fc6';
+            }
+            const note = document.querySelector('#known-list > div');
+            if (note) note.style.display = 'none';
+        }
+        document.querySelectorAll('#known-list button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (_isFileProto) {
+                    document.getElementById('model-info').innerHTML =
+                        '<strong style="color:#fc6">Drag this file onto the page:</strong><br>' +
+                        '<span style="font-size:0.75em; word-break:break-all">' +
+                        'characters/' + btn.dataset.path + '</span><br>' +
+                        '<span style="font-size:0.7em; color:#888">(file:// blocks fetch — drag&amp;drop bypasses it)</span>';
+                } else {
+                    loadFromURL(btn.dataset.path);
+                }
+            });
+        });
+
+        // ---- render loop ----
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (mixer) mixer.update(dt);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        // Expose for headless tests (no effect on user-facing behavior)
+        window.loadFromArrayBuffer = loadFromArrayBuffer;
+        Object.defineProperty(window, 'currentModel', { get: () => currentModel });
+    </script>
+</body>
+</html>
